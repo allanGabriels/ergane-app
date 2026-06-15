@@ -1,7 +1,16 @@
-// ⚠️ AVISO DE ÍCONES: Os ícones devem ser importados exclusivamente do ficheiro `src/theme/icons.js`.
-// ⚠️ AVISO FIGMA: Não adivinhem tamanhos de letra ou margens. Olhem sempre a aba 'Tipografia' ou 'Inspect' no Figma.
-
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  useFonts,
+} from "@expo-google-fonts/inter";
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { useEffect } from "react";
+
+// Mantém o ecrã de splash visível enquanto as fontes carregam de forma assíncrona
+SplashScreen.preventAutoHideAsync();
 
 /**
  * Este é o Root Layout (Layout Principal) da nossa aplicação Ergane.
@@ -9,6 +18,25 @@ import { Stack } from "expo-router";
  * é uma carta nova colocada no topo do baralho.
  */
 export default function RootLayout() {
+  const [loaded, error] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
+
+  useEffect(() => {
+    if (loaded || error) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded, error]);
+
+  // Se as fontes ainda não carregaram e não há erro, não renderiza a árvore
+  // para evitar o efeito visual de texto a piscar ou a mudar de tamanho repentinamente.
+  if (!loaded && !error) {
+    return null;
+  }
+
   return (
     // 'headerShown: false' remove aquela barra de título feia padrão do telemóvel
     // em todos os ecrãs, para podermos fazer o nosso próprio cabeçalho no Figma.

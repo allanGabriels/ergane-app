@@ -1,6 +1,7 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,16 +16,17 @@ import {
 } from "react-native";
 import { PALETA } from "../constants/theme";
 
-const FONTE = "Inter, Arial, sans-serif";
-
 export default function CadastrarProdutoScreen() {
   const [loading, setLoading] = useState(false);
 
   const [nome, setNome] = useState("");
   const [preco, setPreco] = useState("");
-  const [estoque, setEstoque] = useState(0);
+  // Estoque agora é uma string para permitir digitação livre no TextInput
+  const [estoqueStr, setEstoqueStr] = useState("0");
   const [descricao, setDescricao] = useState("");
-  const [categoriasSelecionadas, setCategoriasSelecionadas] = useState<string[]>([]);
+  const [categoriasSelecionadas, setCategoriasSelecionadas] = useState<
+    string[]
+  >([]);
 
   const [modalCategoriaVisivel, setModalCategoriaVisivel] = useState(false);
   const [novaCategoria, setNovaCategoria] = useState("");
@@ -38,37 +40,57 @@ export default function CadastrarProdutoScreen() {
   function limparCampos() {
     setNome("");
     setPreco("");
-    setEstoque(0);
+    setEstoqueStr("0");
     setDescricao("");
     setCategoriasSelecionadas([]);
   }
 
   function aumentarEstoque() {
-    setEstoque((valorAtual) => valorAtual + 1);
+    setEstoqueStr((prev) => (parseInt(prev || "0", 10) + 1).toString());
   }
 
   function diminuirEstoque() {
-    setEstoque((valorAtual) => (valorAtual > 0 ? valorAtual - 1 : 0));
+    setEstoqueStr((prev) => {
+      const val = parseInt(prev || "0", 10);
+      return val > 0 ? (val - 1).toString() : "0";
+    });
+  }
+
+  // Permite apenas números na digitação do estoque
+  function handleEstoqueChange(text: string) {
+    setEstoqueStr(text.replace(/[^0-9]/g, ""));
   }
 
   async function salvarProduto() {
     if (!nome || !preco) {
-      Alert.alert("Aviso", "Preencha ao menos o Nome e o Preço para continuar.");
+      Alert.alert(
+        "Aviso",
+        "Preencha ao menos o Nome e o Preço para continuar.",
+      );
+      return;
+    }
+
+    if (categoriasSelecionadas.length === 0) {
+      Alert.alert("Aviso", "Informe ao menos uma categoria.");
       return;
     }
 
     try {
       setLoading(true);
+      const token = await AsyncStorage.getItem("userToken");
 
       const payload = {
         nome,
         preco: parseFloat(preco.replace(",", ".")),
-        estoque,
+        custoProducao: 0, // Campo obrigatório na API, mas oculto no design
+        estoque: parseInt(estoqueStr || "0", 10),
         descricao,
         categorias: categoriasSelecionadas,
       };
 
-      await axios.post("/produtos", payload);
+      await axios.post("https://ergane-api.onrender.com/produtos", payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       Alert.alert("Sucesso", "Produto cadastrado com sucesso.");
       limparCampos();
@@ -88,17 +110,15 @@ export default function CadastrarProdutoScreen() {
 
     try {
       setLoading(true);
+      const token = await AsyncStorage.getItem("userToken");
 
-      await axios.post("/categorias", {
-        nome: novaCategoria,
-      });
+      await axios.post(
+        "https://ergane-api.onrender.com/categorias",
+        { nome: novaCategoria },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
 
-      setCategoriasSelecionadas((categoriasAtuais) => [
-        ...categoriasAtuais,
-        novaCategoria,
-      ]);
-
-      Alert.alert("Sucesso", `Categoria "${novaCategoria}" criada.`);
+      setCategoriasSelecionadas((prev) => [...prev, novaCategoria]);
       setNovaCategoria("");
       setModalCategoriaVisivel(false);
     } catch (error) {
@@ -111,12 +131,13 @@ export default function CadastrarProdutoScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.container}>
+        {/* Cabeçalho com X e Check */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.headerButton}
             onPress={() => router.back()}
           >
-            <Text style={styles.closeIcon}>×</Text>
+            <Text style={styles.closeIcon}>✕</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -163,7 +184,14 @@ export default function CadastrarProdutoScreen() {
               <Text style={styles.estoqueButtonText}>+</Text>
             </TouchableOpacity>
 
-            <Text style={styles.estoqueValor}>{estoque}</Text>
+            {/* Transformado em TextInput para digitação livre */}
+            <TextInput
+              style={styles.estoqueInput}
+              keyboardType="numeric"
+              value={estoqueStr}
+              onChangeText={handleEstoqueChange}
+              selectTextOnFocus
+            />
 
             <TouchableOpacity
               style={styles.estoqueButton}
@@ -176,11 +204,13 @@ export default function CadastrarProdutoScreen() {
           <View style={styles.linhaCategoria}>
             <View>
               <Text style={styles.label}>Categorias</Text>
-
               <TouchableOpacity
                 style={styles.selecionarArea}
                 onPress={() =>
-                  Alert.alert("Aviso", "Seleção de categorias em desenvolvimento")
+                  Alert.alert(
+                    "Aviso",
+                    "Seleção de categorias em desenvolvimento",
+                  )
                 }
               >
                 <Text style={styles.selecionarTexto}>
@@ -202,12 +232,9 @@ export default function CadastrarProdutoScreen() {
 
           <View style={styles.linhaVariacoes}>
             <Text style={styles.label}>Variações</Text>
-
             <TouchableOpacity
               style={styles.criarButton}
-              onPress={() =>
-                Alert.alert("Aviso", "Criação de variações em desenvolvimento")
-              }
+              onPress={() => Alert.alert("Aviso", "Em desenvolvimento")}
             >
               <Text style={styles.criarTexto}>Criar</Text>
             </TouchableOpacity>
@@ -227,6 +254,7 @@ export default function CadastrarProdutoScreen() {
         </ScrollView>
       </View>
 
+      {/* Modal de Categoria */}
       <Modal
         visible={modalCategoriaVisivel}
         transparent
@@ -236,7 +264,6 @@ export default function CadastrarProdutoScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCategoria}>
             <Text style={styles.modalTitulo}>Nova Categoria</Text>
-
             <TextInput
               style={styles.modalInput}
               placeholder="Digite o nome da categoria"
@@ -244,7 +271,6 @@ export default function CadastrarProdutoScreen() {
               value={novaCategoria}
               onChangeText={setNovaCategoria}
             />
-
             <View style={styles.modalBotoes}>
               <TouchableOpacity
                 style={styles.modalBotaoCancelar}
@@ -252,7 +278,6 @@ export default function CadastrarProdutoScreen() {
               >
                 <Text style={styles.modalTextoCancelar}>Cancelar</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={styles.modalBotaoCriar}
                 onPress={criarCategoria}
@@ -273,287 +298,211 @@ function criarStyles(escala: number, larguraBase: number) {
   return StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: PALETA.roxoEscuro,
+      backgroundColor: PALETA.roxoEscuro, // Fundo roxo do design
       alignItems: "center",
     },
-
     container: {
       flex: 1,
       width: larguraBase,
       backgroundColor: PALETA.roxoEscuro,
       paddingHorizontal: s(26),
     },
-
     header: {
       height: s(80),
       flexDirection: "row",
       alignItems: "flex-start",
       justifyContent: "space-between",
       paddingTop: s(18),
+      borderBottomWidth: 1, // Linha de divisão que aparece no Figma
+      borderBottomColor: "rgba(255, 255, 255, 0.1)",
     },
-
     headerButton: {
       width: s(55),
       height: s(55),
       alignItems: "center",
       justifyContent: "center",
     },
-
     closeIcon: {
-      fontFamily: FONTE,
-      fontSize: s(38),
-      fontWeight: "300",
-      lineHeight: s(38),
+      fontFamily: "Inter_400Regular",
+      fontSize: s(32),
       color: PALETA.branco,
     },
-
     checkIcon: {
-      fontFamily: FONTE,
-      fontSize: s(36),
-      fontWeight: "300",
-      lineHeight: s(36),
+      fontFamily: "Inter_400Regular",
+      fontSize: s(32),
       color: PALETA.branco,
     },
-
     scrollContent: {
       paddingBottom: s(40),
     },
-
     nomeInput: {
-      width: s(364),
-      height: s(51),
+      width: "100%",
       marginTop: s(34),
-      fontFamily: FONTE,
-      fontSize: s(32),
-      fontWeight: "700",
-      lineHeight: s(32),
-      color: PALETA.cinzaApagado,
+      fontFamily: "Inter_700Bold",
+      fontSize: s(28),
+      color: PALETA.branco, // Ajustado para branco conforme o Figma
       padding: 0,
     },
-
     precoInput: {
-      width: s(364),
-      height: s(51),
+      width: "100%",
       marginTop: s(12),
-      fontFamily: FONTE,
-      fontSize: s(32),
-      fontWeight: "700",
-      lineHeight: s(32),
+      fontFamily: "Inter_700Bold",
+      fontSize: s(28),
       color: PALETA.cinzaApagado,
       padding: 0,
     },
-
     estoqueLabel: {
-      width: s(73),
-      height: s(18),
-      marginTop: s(22),
-      fontFamily: FONTE,
-      fontSize: s(16),
-      fontWeight: "400",
-      lineHeight: s(16),
+      marginTop: s(32),
+      fontFamily: "Inter_400Regular",
+      fontSize: s(14),
       color: PALETA.branco,
     },
-
     estoqueArea: {
-      height: s(47),
       marginTop: s(15),
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
+      justifyContent: "flex-start",
     },
-
     estoqueButton: {
-      width: s(47),
-      height: s(47),
-      borderRadius: s(24),
+      width: s(40),
+      height: s(40),
+      borderRadius: s(20),
       backgroundColor: PALETA.cinzaApagado,
       alignItems: "center",
       justifyContent: "center",
     },
-
     estoqueButtonText: {
-      fontFamily: FONTE,
-      fontSize: s(32),
-      fontWeight: "700",
-      lineHeight: s(32),
+      fontFamily: "Inter_700Bold",
+      fontSize: s(24),
       color: PALETA.roxoEscuro,
     },
-
     menosText: {
-      fontFamily: FONTE,
-      fontSize: s(38),
-      fontWeight: "700",
-      lineHeight: s(38),
+      fontFamily: "Inter_700Bold",
+      fontSize: s(24),
       color: PALETA.roxoEscuro,
-      marginTop: s(-4),
+      marginTop: s(-2),
     },
-
-    estoqueValor: {
-      width: s(53),
-      height: s(42),
-      marginHorizontal: s(35),
-      fontFamily: FONTE,
-      fontSize: s(40),
-      fontWeight: "700",
-      lineHeight: s(40),
+    estoqueInput: {
+      width: s(60),
+      marginHorizontal: s(20),
+      fontFamily: "Inter_700Bold",
+      fontSize: s(28),
       textAlign: "center",
       color: PALETA.cinzaApagado,
     },
-
     linhaCategoria: {
       marginTop: s(52),
-      height: s(66),
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "flex-start",
     },
-
     label: {
-      width: s(98),
-      height: s(18),
-      fontFamily: FONTE,
-      fontSize: s(18),
-      fontWeight: "400",
-      lineHeight: s(18),
+      fontFamily: "Inter_400Regular",
+      fontSize: s(14),
       color: PALETA.branco,
     },
-
     selecionarArea: {
-      marginTop: s(15),
+      marginTop: s(8),
       flexDirection: "row",
       alignItems: "center",
     },
-
     selecionarTexto: {
-      minWidth: s(107),
-      height: s(18),
-      fontFamily: FONTE,
-      fontSize: s(20),
-      fontWeight: "700",
-      lineHeight: s(20),
+      fontFamily: "Inter_700Bold",
+      fontSize: s(16),
       color: PALETA.cinzaApagado,
     },
-
     maisCategoria: {
       marginLeft: s(10),
-      fontFamily: FONTE,
-      fontSize: s(20),
-      fontWeight: "700",
-      lineHeight: s(20),
+      fontFamily: "Inter_700Bold",
+      fontSize: s(16),
       color: PALETA.branco,
     },
-
     criarButton: {
-      width: s(76),
-      height: s(32),
+      paddingHorizontal: s(16),
+      paddingVertical: s(6),
       borderRadius: s(16),
       backgroundColor: PALETA.cinzaApagado,
       alignItems: "center",
       justifyContent: "center",
     },
-
     criarTexto: {
-      fontFamily: FONTE,
-      fontSize: s(16),
-      fontWeight: "400",
-      lineHeight: s(16),
-      textAlign: "center",
+      fontFamily: "Inter_400Regular",
+      fontSize: s(14),
       color: PALETA.preto,
     },
-
     linhaVariacoes: {
       marginTop: s(38),
-      height: s(38),
       flexDirection: "row",
       justifyContent: "space-between",
-      alignItems: "flex-start",
+      alignItems: "center",
     },
-
     descricaoLabel: {
-      width: s(98),
-      height: s(18),
-      marginTop: s(58),
-      fontFamily: FONTE,
-      fontSize: s(18),
-      fontWeight: "400",
-      lineHeight: s(18),
+      marginTop: s(38),
+      fontFamily: "Inter_400Regular",
+      fontSize: s(14),
       color: PALETA.branco,
     },
-
     descricaoInput: {
-      width: s(362),
+      width: "100%",
       height: s(94),
-      marginTop: s(20),
-      fontFamily: FONTE,
-      fontSize: s(18),
-      fontWeight: "400",
-      lineHeight: s(18),
-      color: PALETA.branco,
+      marginTop: s(12),
+      fontFamily: "Inter_400Regular",
+      fontSize: s(14),
+      color: PALETA.cinzaApagado,
       padding: 0,
     },
-
     modalOverlay: {
       flex: 1,
-      backgroundColor: "rgba(0, 0, 0, 0.45)",
+      backgroundColor: "rgba(0, 0, 0, 0.6)",
       alignItems: "center",
       justifyContent: "center",
     },
-
     modalCategoria: {
-      width: s(340),
+      width: s(320),
       borderRadius: s(20),
       backgroundColor: PALETA.branco,
       padding: s(22),
     },
-
     modalTitulo: {
-      fontFamily: FONTE,
-      fontSize: s(22),
-      fontWeight: "700",
+      fontFamily: "Inter_700Bold",
+      fontSize: s(20),
       color: PALETA.roxoEscuro,
       marginBottom: s(18),
     },
-
     modalInput: {
       height: s(46),
       borderWidth: 1,
       borderColor: PALETA.cinzaApagado,
       borderRadius: s(12),
       paddingHorizontal: s(12),
-      fontFamily: FONTE,
+      fontFamily: "Inter_400Regular",
       fontSize: s(16),
       color: PALETA.preto,
     },
-
     modalBotoes: {
       marginTop: s(20),
       flexDirection: "row",
       justifyContent: "flex-end",
     },
-
     modalBotaoCancelar: {
       paddingHorizontal: s(14),
       paddingVertical: s(8),
       marginRight: s(12),
     },
-
     modalTextoCancelar: {
-      fontFamily: FONTE,
+      fontFamily: "Inter_400Regular",
       fontSize: s(16),
       color: PALETA.roxoEscuro,
     },
-
     modalBotaoCriar: {
       paddingHorizontal: s(18),
       paddingVertical: s(8),
       borderRadius: s(12),
       backgroundColor: PALETA.roxoEscuro,
     },
-
     modalTextoCriar: {
-      fontFamily: FONTE,
+      fontFamily: "Inter_700Bold",
       fontSize: s(16),
-      fontWeight: "700",
       color: PALETA.branco,
     },
   });

@@ -1,145 +1,309 @@
-import { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { AntDesign, Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-export default function App() {
-  // Estados para controlar o método e a quantidade de parcelas
-  const [metodo, setMetodo] = useState("Dinheiro");
-  const [parcelas, setParcelas] = useState("1x 25,50");
+export default function Pagamento() {
+  const router = useRouter();
+  const { dados } = useLocalSearchParams();
 
-  // Controlam a abertura dos menus de opções
+  const [vendaInput, setVendaInput] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Estados de controle
+  const [metodo, setMetodo] = useState<"Dinheiro" | "Crédito" | "Pix">(
+    "Dinheiro",
+  );
+  const [parcelas, setParcelas] = useState(1);
+  const [valorRecebidoStr, setValorRecebidoStr] = useState("0,00");
+
   const [showMetodos, setShowMetodos] = useState(false);
   const [showParcelas, setShowParcelas] = useState(false);
 
-  // Mapeamento de ícones para cada método
-  const getIcone = (tipo) => {
-    if (tipo === "Dinheiro") return "💵";
-    if (tipo === "Crédito") return "💳";
-    return "⚡";
+  useEffect(() => {
+    if (dados) {
+      try {
+        const parsed = JSON.parse(dados as string);
+        setVendaInput(parsed);
+        // Sugere o valor exato no dinheiro inicialmente
+        setValorRecebidoStr(parsed.valorTotal.toFixed(2).replace(".", ","));
+      } catch (e) {
+        Alert.alert("Erro", "Falha ao carregar dados da venda.");
+      }
+    }
+  }, [dados]);
+
+  const total = vendaInput?.valorTotal || 0;
+
+  // Trata a entrada do usuário para o valor em dinheiro
+  const handleValorRecebido = (text: string) => {
+    const numericText = text.replace(/[^0-9]/g, "");
+    if (!numericText) {
+      setValorRecebidoStr("0,00");
+      return;
+    }
+    const valorFloat = parseInt(numericText, 10) / 100;
+    setValorRecebidoStr(valorFloat.toFixed(2).replace(".", ","));
+  };
+
+  const valorRecebido = parseFloat(valorRecebidoStr.replace(",", "."));
+  const troco = valorRecebido > total ? valorRecebido - total : 0;
+
+  const opcoesParcelas = [1, 2, 3, 4, 5, 6];
+
+  const getIcone = (tipo: string) => {
+    if (tipo === "Dinheiro")
+      return <Ionicons name="cash-outline" size={18} color="#3EC300" />;
+    if (tipo === "Crédito")
+      return <Ionicons name="card-outline" size={18} color="#3EC300" />;
+    return <Ionicons name="apps-outline" size={18} color="#3EC300" />;
+  };
+
+  const mapMetodoApi = (m: string) => {
+    if (m === "Crédito") return "CARTAO_CREDITO";
+    if (m === "Pix") return "PIX";
+    return "DINHEIRO";
+  };
+
+  const handleVender = async () => {
+    if (metodo === "Dinheiro" && valorRecebido < total) {
+      Alert.alert("Atenção", "O valor recebido é menor que o total da venda.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem("userToken");
+
+      const payload = {
+        nomeCliente: vendaInput?.nomeCliente,
+        cpfCliente: vendaInput?.cpfCliente,
+        metodoPagamento: mapMetodoApi(metodo),
+        valorTotal: total,
+        valorRecebido: metodo === "Dinheiro" ? valorRecebido : total,
+        troco: metodo === "Dinheiro" ? troco : 0.0,
+        itens: vendaInput?.itens || [],
+      };
+
+      await axios.post("https://ergane-api.onrender.com/vendas", payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      Alert.alert("Sucesso", "Venda registrada com sucesso!");
+      router.replace("/(tabs)"); // Volta para a home atualizando o dashboard
+    } catch (error: any) {
+      Alert.alert("Erro", "Não foi possível registrar a venda.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <View style={styles.tudo}>
       <View style={styles.botaocima}>
-        <TouchableOpacity style={styles.click}>
-          <Text style={styles.voltar}>X</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.click}>
+          <Ionicons name="close" size={36} color="#053225" />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.caixaMaior}>
-        <Text style={styles.tituloCaixa}>Selecionar Método</Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollBody}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Caixa Seletora Principal */}
+        <View style={styles.caixaMaior}>
+          <Text style={styles.tituloCaixa}>Selecionar Método</Text>
 
-        <TouchableOpacity
-          style={styles.inputSeletorCima}
-          onPress={() => {
-            setShowMetodos(!showMetodos);
-            setShowParcelas(false);
-          }}
-          activeOpacity={0.8}
-        >
-          <View style={styles.metodoEsquerda}>
-            <Text style={styles.iconeMetodo}>{getIcone(metodo)}</Text>
-            <Text style={styles.textoValor}>{metodo}</Text>
-          </View>
-          <Text style={styles.setaDireita}>&gt;</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.inputSeletorCima}
+            onPress={() => {
+              setShowMetodos(!showMetodos);
+              setShowParcelas(false);
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.metodoEsquerda}>
+              <View style={styles.iconeWrapper}>{getIcone(metodo)}</View>
+              <Text style={styles.textoValor}>{metodo}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={14} color="#54605C" />
+          </TouchableOpacity>
 
-        {showMetodos && (
-          <View style={styles.menuOpcoes}>
-            {["Dinheiro", "Crédito", "Pix"].map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={styles.opcaoItem}
-                onPress={() => {
-                  setMetodo(item);
-                  setShowMetodos(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.textoOpcao,
-                    metodo === item && styles.opcaoSelecionada,
-                  ]}
+          {showMetodos && (
+            <View style={styles.menuOpcoes}>
+              {(["Dinheiro", "Crédito", "Pix"] as const).map((item) => (
+                <TouchableOpacity
+                  key={item}
+                  style={styles.opcaoItem}
+                  onPress={() => {
+                    setMetodo(item);
+                    if (item !== "Crédito") setParcelas(1);
+                    setShowMetodos(false);
+                  }}
                 >
-                  {getIcone(item)} {item}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+                  <View style={styles.opcaoConteudo}>
+                    {getIcone(item)}
+                    <Text
+                      style={[
+                        styles.textoOpcao,
+                        metodo === item && styles.opcaoSelecionada,
+                      ]}
+                    >
+                      {item}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
-        <TouchableOpacity
-          style={styles.inputSeletorBaixo}
-          onPress={() => {
-            setShowParcelas(!showParcelas);
-            setShowMetodos(false);
-          }}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.textoValor}>{parcelas}</Text>
-          <Text style={styles.setaDireita}>&gt;</Text>
-        </TouchableOpacity>
+          {/* Sub-seletor dependente do método */}
+          <TouchableOpacity
+            style={styles.inputSeletorBaixo}
+            onPress={() =>
+              metodo === "Crédito" && setShowParcelas(!showParcelas)
+            }
+            activeOpacity={metodo === "Crédito" ? 0.8 : 1}
+          >
+            <Text style={styles.textoValorParc}>
+              {metodo === "Crédito"
+                ? `${parcelas}x ${(total / parcelas).toFixed(2).replace(".", ",")}`
+                : metodo === "Dinheiro"
+                  ? `1x ${total.toFixed(2).replace(".", ",")}`
+                  : `R$${total.toFixed(2).replace(".", ",")}`}
+            </Text>
+            {metodo === "Crédito" && (
+              <Ionicons name="chevron-forward" size={14} color="#54605C" />
+            )}
+          </TouchableOpacity>
 
-        {showParcelas && (
-          <View style={styles.menuOpcoes}>
-            {["1x 25,50", "2x 12,75", "3x 8,50"].map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={styles.opcaoItem}
-                onPress={() => {
-                  setParcelas(item);
-                  setShowParcelas(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.textoOpcao,
-                    parcelas === item && styles.opcaoSelecionada,
-                  ]}
+          {showParcelas && metodo === "Crédito" && (
+            <View style={styles.menuOpcoes}>
+              {opcoesParcelas.map((parc) => (
+                <TouchableOpacity
+                  key={parc}
+                  style={styles.opcaoItem}
+                  onPress={() => {
+                    setParcelas(parc);
+                    setShowParcelas(false);
+                  }}
                 >
-                  {item}
+                  <Text
+                    style={[
+                      styles.textoOpcao,
+                      parcelas === parc && styles.opcaoSelecionada,
+                    ]}
+                  >
+                    {parc}x {(total / parc).toFixed(2).replace(".", ",")}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Lista visual dos itens da venda */}
+        <View style={styles.lista}>
+          <Text style={styles.itensTitle}>Itens</Text>
+          {vendaInput?.itens?.map((item: any, idx: number) => (
+            <View key={idx} style={styles.itemRow}>
+              <View style={styles.itemRowEsquerda}>
+                <Text style={styles.produtoNome}>{item.nome || "Produto"}</Text>
+                <Text style={styles.produtoPreco}>
+                  R${item.precoUnitario.toFixed(2).replace(".", ",")}
                 </Text>
-              </TouchableOpacity>
-            ))}
+              </View>
+              <View style={styles.controlesDireita}>
+                <AntDesign name="delete" size={18} color="#FF3B30" />
+                <Text style={styles.qntdText}>{item.quantidade}</Text>
+                <AntDesign name="plus" size={14} color="#FF3B30" />
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.linha} />
+
+        {/* Bloco de Resumo */}
+        <View style={styles.nota}>
+          <Text style={styles.resumo}>Resumo</Text>
+
+          <View style={styles.bloco}>
+            <Text style={styles.itemLabel}>Total</Text>
+            <Text style={styles.valorLabel}>
+              R${total.toFixed(2).replace(".", ",")}
+            </Text>
           </View>
-        )}
+
+          {metodo === "Dinheiro" && (
+            <>
+              <View style={styles.bloco}>
+                <Text style={styles.itemLabel}>Pagamento</Text>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.moedaText}>R$</Text>
+                  <TextInput
+                    style={styles.inputPagamentoDinheiro}
+                    value={valorRecebidoStr}
+                    onChangeText={handleValorRecebido}
+                    keyboardType="numeric"
+                    selectTextOnFocus
+                  />
+                </View>
+              </View>
+              <View style={styles.bloco}>
+                <Text style={styles.itemLabel}>Troco</Text>
+                <Text style={styles.valorLabel}>
+                  R${troco.toFixed(2).replace(".", ",")}
+                </Text>
+              </View>
+            </>
+          )}
+
+          {metodo === "Crédito" && (
+            <View style={styles.bloco}>
+              <Text style={styles.itemLabel}>Pagamento</Text>
+              <Text style={styles.valorLabel}>
+                {parcelas}x R${(total / parcelas).toFixed(2).replace(".", ",")}
+              </Text>
+            </View>
+          )}
+
+          {metodo === "Pix" && (
+            <View style={styles.bloco}>
+              <Text style={styles.itemLabel}>Pagamento</Text>
+              <Text style={styles.valorLabel}>
+                R${total.toFixed(2).replace(".", ",")}
+              </Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Botão Fixo */}
+      <View style={styles.containerBotao}>
+        <TouchableOpacity
+          style={styles.botao}
+          onPress={handleVender}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.continua}>Vender</Text>
+          )}
+        </TouchableOpacity>
       </View>
-
-      <View style={styles.lista}>
-        <Text style={styles.itens}>Itens</Text>
-
-        <View style={styles.card}>
-          <Text style={styles.produto}>Coxinha de Carne</Text>
-          <Text style={styles.deleta}>lixo</Text>
-          <Text style={styles.qntd}>3</Text>
-          <Text style={styles.adiciona}>+</Text>
-        </View>
-        <Text style={styles.preco}>R$8,50</Text>
-      </View>
-
-      <View style={styles.linha}></View>
-
-      <View style={styles.nota}>
-        <Text style={styles.resumo}>Resumo</Text>
-
-        <View style={styles.bloco}>
-          <Text style={styles.item}>Total</Text>
-          <Text style={styles.valor}>R$25,50</Text>
-        </View>
-
-        <View style={styles.bloco}>
-          <Text style={styles.item}>Pagamento</Text>
-          <Text style={styles.valor}>R$50,00</Text>
-        </View>
-
-        <View style={styles.bloco}>
-          <Text style={styles.item}>Troco</Text>
-          <Text style={styles.valor}>R$24,50</Text>
-        </View>
-      </View>
-
-      <TouchableOpacity style={styles.botao}>
-        <Text style={styles.continua}>Continuar</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -147,161 +311,206 @@ export default function App() {
 const styles = StyleSheet.create({
   tudo: {
     flex: 1,
-    backgroundColor: "#F4F4F6",
+    backgroundColor: "#EAEAEF",
   },
   botaocima: {
-    maxHeight: 60,
-    marginTop: 12,
-    marginLeft: 10,
+    paddingTop: 50,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 180, 180, 0.4)",
   },
-  voltar: {
-    fontSize: 30,
-    color: "#053225",
+  click: {
+    alignSelf: "flex-start",
   },
-
+  scrollBody: {
+    paddingHorizontal: 24,
+    paddingBottom: 110,
+  },
   caixaMaior: {
-    backgroundColor: "#FFFFFF",
-    marginHorizontal: 12,
-    marginVertical: 15,
+    backgroundColor: "#F1F1F5",
+    marginTop: 24,
+    marginBottom: 32,
     padding: 16,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderRadius: 18,
   },
   tituloCaixa: {
-    fontSize: 18,
-    fontWeight: "500",
-    color: "#000000",
-    marginBottom: 14,
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: "#053225",
+    marginBottom: 12,
   },
   inputSeletorCima: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#EAEAEB",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderTopLeftRadius: 14,
-    borderTopRightRadius: 14,
-    borderBottomLeftRadius: 4,
-    borderBottomRightRadius: 4,
-    marginBottom: 4,
+    backgroundColor: "#E2E2E8",
+    paddingHorizontal: 14,
+    height: 38,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#D1D1D6",
   },
   inputSeletorBaixo: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#EAEAEB",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
-    borderBottomLeftRadius: 14,
-    borderBottomRightRadius: 14,
+    backgroundColor: "#E2E2E8",
+    paddingHorizontal: 14,
+    height: 38,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
   },
   metodoEsquerda: {
     flexDirection: "row",
     alignItems: "center",
   },
-  iconeMetodo: {
-    fontSize: 15,
-    marginRight: 10,
+  iconeWrapper: {
+    marginRight: 8,
   },
   textoValor: {
-    fontSize: 16,
-    color: "#000000",
-  },
-  setaDireita: {
+    fontFamily: "Inter_400Regular",
     fontSize: 14,
-    color: "#000000",
-    fontWeight: "bold",
+    color: "#1A1A1A",
+  },
+  textoValorParc: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: "#54605C",
   },
   menuOpcoes: {
-    backgroundColor: "#F4F4F6",
+    backgroundColor: "#FFFFFF",
     borderRadius: 8,
     marginVertical: 4,
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    overflow: "hidden",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   opcaoItem: {
-    padding: 14,
+    padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: "#F0F0F0",
+  },
+  opcaoConteudo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   textoOpcao: {
-    fontSize: 16,
-    color: "#333333",
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    color: "#1A1A1A",
   },
   opcaoSelecionada: {
     color: "#3EC300",
-    fontWeight: "bold",
+    fontFamily: "Inter_700Bold",
   },
   lista: {
-    flex: 2,
-    marginLeft: 10,
+    marginBottom: 8,
   },
-  itens: {
+  itensTitle: {
+    fontFamily: "Inter_400Regular",
     fontSize: 18,
     color: "#053225",
+    marginBottom: 16,
   },
-  card: {
+  itemRow: {
     flexDirection: "row",
-    marginTop: 10,
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 18,
   },
-  produto: {
-    fontWeight: "bold",
-    marginRight: 100,
+  itemRowEsquerda: {
+    flex: 1,
   },
-  deleta: {
-    marginRight: 20,
-  },
-  qntd: {
-    marginRight: 20,
-  },
-  adiciona: {
-    marginRight: 20,
-  },
-  preco: {
+  produtoNome: {
+    fontFamily: "Inter_700Bold",
     fontSize: 16,
+    color: "#053225",
+  },
+  produtoPreco: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 16,
+    color: "#053225",
+    marginTop: 2,
+  },
+  controlesDireita: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  qntdText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 16,
+    color: "#000000",
+    marginHorizontal: 14,
   },
   linha: {
     borderTopWidth: 1,
-    marginHorizontal: 20,
-  },
-  botao: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 25,
-  },
-  continua: {
-    borderRadius: 10,
-    paddingHorizontal: 100,
-    paddingVertical: 10,
-    backgroundColor: "#3EC300",
-    color: "#FFFFFF",
-    fontWeight: "bold",
-    fontSize: 17,
+    borderColor: "#A0AAB5",
+    marginVertical: 16,
   },
   nota: {
-    marginLeft: 10,
-    marginTop: 25,
+    marginTop: 8,
   },
   resumo: {
+    fontFamily: "Inter_700Bold",
     fontSize: 16,
-    fontWeight: "bold",
+    color: "#053225",
+    marginBottom: 16,
   },
   bloco: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 10,
+    alignItems: "center",
+    height: 36,
   },
-  item: {
+  itemLabel: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
+    color: "#54605C",
+  },
+  valorLabel: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
     color: "#053225",
   },
-  valor: {
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  moedaText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
     color: "#053225",
-    marginRight: 10,
+  },
+  inputPagamentoDinheiro: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
+    color: "#053225",
+    textAlign: "right",
+    minWidth: 50,
+    padding: 0,
+  },
+  containerBotao: {
+    position: "absolute",
+    bottom: 24,
+    left: 24,
+    right: 24,
+  },
+  botao: {
+    width: "100%",
+    height: 54,
+    backgroundColor: "#3EC300",
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  continua: {
+    fontFamily: "Inter_700Bold",
+    color: "#FFFFFF",
+    fontSize: 18,
   },
 });

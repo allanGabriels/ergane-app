@@ -4,18 +4,18 @@
 // View funciona como uma caixa/estrutura para organizar elementos.
 // Text mostra texto na tela.
 // StyleSheet serve para criar estilos parecidos com CSS.
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
+  ActivityIndicator,
+  Alert,
   Modal,
   ScrollView,
+  StyleSheet,
+  Text,
   TextInput,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 type Props = {
   visible: boolean;
@@ -31,51 +31,18 @@ export default function VisaoEspecificaProduto({
   onRefreshList,
 }: Props) {
   const [loading, setLoading] = useState(false);
-  const [nome, setNome] = useState('');
+  const [nome, setNome] = useState("");
   const [preco, setPreco] = useState(0);
   const [estoque, setEstoque] = useState(0);
-  const [descricao, setDescricao] = useState('');
+  const [descricao, setDescricao] = useState("");
   const [categorias, setCategorias] = useState<string[]>([]);
 
-  // uso com a API
-  /*
   useEffect(() => {
-    if (visible && produtoId) {
-      async function loadProdutoDetalhes(){
-        try {
-          setLoading(true);
-          // const response = await api.get(`/produtos/${produtoId}`);
-          // Exemplo de preenchimento dos estados com o retorno da API:
-          // setNome(response.data.nome);
-          // setPreco(response.data.preco);
-          // setEstoque(response.data.estoque);
-          // setDescricao(response.data.descricao);
-          // setCategorias(response.data.categorias);
-
-          // MOCK para testes locais igual à imagem:
-          setNome('Coxinha de Carne');
-          setPreco(8.50);
-          setEstoque(12);
-          setDescricao('Coxinha de carne feita com... carne.');
-          setCategorias(['Frito', 'Carne']);
-        } catch (error) {
-          Alert.alert('Erro', 'Não foi possível carregar os detalhes do produto.');
-        } finally {
-          setLoading(false);
-        }
-      }
-      loadProdutoDetalhes();
-    }
-  }, [visible, produtoId]);
-  */
- 
-  // apenas para uso visual
-  useEffect(() => {
-    setNome('Coxinha de Carne');
+    setNome("Coxinha de Carne");
     setPreco(8.5);
     setEstoque(12);
-    setDescricao('Coxinha de carne feita com carne');
-    setCategorias(['Frito', 'Carne']);
+    setDescricao("Coxinha de carne feita com carne");
+    setCategorias(["Frito", "Carne"]);
   }, []);
 
   const handleSalvarAlteracoes = async () => {
@@ -90,11 +57,11 @@ export default function VisaoEspecificaProduto({
         categorias,
       };
 
-      Alert.alert('Sucesso', 'Produto atualizado com sucesso!');
+      Alert.alert("Sucesso", "Produto atualizado com sucesso!");
       onRefreshList();
       onClose();
     } catch (error) {
-      Alert.alert('Erro', 'Falha ao salvar as alterações do produto.');
+      Alert.alert("Erro", "Falha ao salvar as alterações do produto.");
     } finally {
       setLoading(false);
     }
@@ -118,18 +85,19 @@ export default function VisaoEspecificaProduto({
         ) : (
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 40 }}>
-
+            contentContainerStyle={{ paddingBottom: 40 }}
+          >
             <Text style={styles.productName}>{nome}</Text>
             <Text style={styles.productPrice}>
-              R$ {preco.toFixed(2).replace('.', ',')}
+              R$ {preco.toFixed(2).replace(".", ",")}
             </Text>
 
             <Text style={styles.sectionTitle}>Estoque</Text>
             <View style={styles.counterRow}>
               <TouchableOpacity
                 style={styles.counterButton}
-                onPress={() => setEstoque(estoque > 0 ? estoque - 1 : 0)}>
+                onPress={() => setEstoque(estoque > 0 ? estoque - 1 : 0)}
+              >
                 <Text style={styles.counterButtonText}>−</Text>
               </TouchableOpacity>
 
@@ -137,7 +105,8 @@ export default function VisaoEspecificaProduto({
 
               <TouchableOpacity
                 style={styles.counterButton}
-                onPress={() => setEstoque(estoque + 1)}>
+                onPress={() => setEstoque(estoque + 1)}
+              >
                 <Text style={styles.counterButtonText}>+</Text>
               </TouchableOpacity>
             </View>
@@ -182,67 +151,67 @@ export default function VisaoEspecificaProduto({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#053225', padding: 24 },
+  container: { flex: 1, backgroundColor: "#053225", padding: 24 },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 30,
     marginTop: 10,
   },
-  headerIcon: { color: '#FFF', fontSize: 28, fontWeight: 'bold' },
+  headerIcon: { color: "#FFF", fontSize: 28, fontWeight: "bold" },
   productName: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 32,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   productPrice: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 26,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 30,
   },
-  sectionTitle: { color: '#FFF', fontSize: 16, marginVertical: 10 },
+  sectionTitle: { color: "#FFF", fontSize: 16, marginVertical: 10 },
   sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 15,
   },
   counterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginVertical: 15,
   },
   counterButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#AFAEAE',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#AFAEAE",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  counterButtonText: { color: '#053225', fontSize: 24, fontWeight: 'bold' },
+  counterButtonText: { color: "#053225", fontSize: 24, fontWeight: "bold" },
   counterValue: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 36,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginHorizontal: 25,
   },
   criarButton: {
-    backgroundColor: '#AFAEAE',
+    backgroundColor: "#AFAEAE",
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 14,
   },
-  criarButtonText: { color: '#053225', fontWeight: 'bold', fontSize: 14 },
-  tagsRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
-  tagText: { color: '#FFF', fontSize: 18, fontWeight: 'bold', marginRight: 15 },
+  criarButtonText: { color: "#053225", fontWeight: "bold", fontSize: 14 },
+  tagsRow: { flexDirection: "row", alignItems: "center", marginVertical: 8 },
+  tagText: { color: "#FFF", fontSize: 18, fontWeight: "bold", marginRight: 15 },
   descriptionInput: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 16,
     marginTop: 10,
     lineHeight: 22,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
 });

@@ -1,5 +1,11 @@
+import { AntDesign, Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
-  FlatList,
+  Alert,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -7,41 +13,200 @@ import {
   View,
 } from "react-native";
 
-export default function App() {
+export default function IniciarVenda() {
+  const router = useRouter();
+  const [nomeCliente, setNomeCliente] = useState("");
+  const [cpfCliente, setCpfCliente] = useState("");
+  const [pesquisa, setPesquisa] = useState("");
+  const [produtosDisponiveis, setProdutosDisponiveis] = useState<any[]>([]);
+  const [itensCarrinho, setItensCarrinho] = useState<any[]>([]);
+
+  // 1. Busca produtos na API ao carregar a tela
+  useEffect(() => {
+    async function carregarProdutos() {
+      try {
+        const token = await AsyncStorage.getItem("userToken");
+        const response = await axios.get(
+          "https://ergane-api.onrender.com/produtos",
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        setProdutosDisponiveis(response.data);
+      } catch (error) {
+        Alert.alert("Erro", "Não foi possível carregar os produtos.");
+      }
+    }
+    carregarProdutos();
+  }, []);
+
+  // 2. Filtra produtos conforme digita
+  const produtosFiltrados = produtosDisponiveis.filter((p) =>
+    p.nome.toLowerCase().includes(pesquisa.toLowerCase()),
+  );
+
+  const adicionarAoCarrinho = (produto: any) => {
+    const existe = itensCarrinho.find((i) => i.produtoId === produto.id);
+    if (existe) {
+      setItensCarrinho((prev) =>
+        prev.map((i) =>
+          i.produtoId === produto.id
+            ? { ...i, quantidade: i.quantidade + 1 }
+            : i,
+        ),
+      );
+    } else {
+      setItensCarrinho((prev) => [
+        ...prev,
+        {
+          produtoId: produto.id,
+          nome: produto.nome,
+          quantidade: 1,
+          precoUnitario: produto.preco,
+        },
+      ]);
+    }
+    setPesquisa(""); // Limpa a busca ao adicionar para esconder a lista
+  };
+
+  const removerItem = (id: string) =>
+    setItensCarrinho((prev) => prev.filter((i) => i.produtoId !== id));
+
+  const incrementarQuantidade = (id: string) =>
+    setItensCarrinho((prev) =>
+      prev.map((i) =>
+        i.produtoId === id ? { ...i, quantidade: i.quantidade + 1 } : i,
+      ),
+    );
+
+  const handleContinuar = () => {
+    if (itensCarrinho.length === 0) {
+      Alert.alert("Aviso", "O carrinho não pode estar vazio.");
+      return;
+    }
+
+    const valorTotal = itensCarrinho.reduce(
+      (acc, item) => acc + item.quantidade * item.precoUnitario,
+      0,
+    );
+    const dadosVenda = {
+      nomeCliente,
+      cpfCliente,
+      valorTotal,
+      itens: itensCarrinho,
+    };
+
+    router.push({
+      pathname: "/pagamento",
+      params: { dados: JSON.stringify(dadosVenda) },
+    });
+  };
+
   return (
     <View style={styles.tudo}>
       <View style={styles.botaocima}>
-        <TouchableOpacity style={styles.click}>
-          <Text style={styles.voltar}>X</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.click}>
+          <Ionicons name="close" size={36} color="#053225" />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.cliente}>
-        <Text style={styles.nome}>Nome Cliente</Text>
-        <Text style={styles.cpf}>Cpf (opcional)</Text>
-      </View>
-
-      <View style={styles.pesquisa}>
-        <Text style={styles.produtos}>Produtos</Text>
-        <TextInput style={styles.barra} placeholder="Pesquisar" />
-        <FlatList />
-      </View>
-
-      <View style={styles.lista}>
-        <Text style={styles.itens}>Itens</Text>
-
-        <View style={styles.card}>
-          <Text style={styles.produto}>Coxinha de Carne</Text>
-          <Text style={styles.deleta}>lixo</Text>
-          <Text style={styles.qntd}>3</Text>
-          <Text style={styles.adiciona}>+</Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollBody}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.cliente}>
+          <TextInput
+            style={styles.inputClienteNome}
+            placeholder="Nome Cliente"
+            placeholderTextColor="#5C756A"
+            value={nomeCliente}
+            onChangeText={setNomeCliente}
+          />
+          <TextInput
+            style={styles.inputClienteCpf}
+            placeholder="Cpf (opcional)"
+            placeholderTextColor="#5C756A"
+            value={cpfCliente}
+            onChangeText={setCpfCliente}
+            keyboardType="numeric"
+          />
         </View>
-        <Text style={styles.preco}>R$8,50</Text>
-      </View>
 
-      <TouchableOpacity style={styles.botao}>
-        <Text style={styles.continua}>Continuar</Text>
-      </TouchableOpacity>
+        {/* Barra de Pesquisa */}
+        <View style={styles.pesquisa}>
+          <Text style={styles.produtosLabel}>Produtos</Text>
+          <View style={styles.barraContainer}>
+            <Ionicons
+              name="search-outline"
+              size={20}
+              color="#1A1A1A"
+              style={styles.lupaIcon}
+            />
+            <TextInput
+              style={styles.barra}
+              placeholder="Pesquisar"
+              placeholderTextColor="#1A1A1A"
+              value={pesquisa}
+              onChangeText={setPesquisa}
+            />
+          </View>
+
+          {/* Resultados da Busca (Aparece apenas ao digitar) */}
+          {pesquisa.length > 0 && (
+            <View style={styles.listaBuscaContainer}>
+              {produtosFiltrados.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.itemBusca}
+                  onPress={() => adicionarAoCarrinho(item)}
+                >
+                  <Text style={styles.itemBuscaTexto}>
+                    {item.nome}{" "}
+                    <Text style={styles.itemBuscaPreco}>
+                      - R${item.preco.toFixed(2)}
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Lista Carrinho */}
+        <View style={styles.lista}>
+          <Text style={styles.itensLabel}>Itens</Text>
+          {itensCarrinho.map((item) => (
+            <View key={item.produtoId} style={styles.itemContainer}>
+              <View style={styles.itemInfoEsquerda}>
+                <Text style={styles.produtoNome}>{item.nome}</Text>
+                <Text style={styles.produtoPreco}>
+                  R${item.precoUnitario.toFixed(2).replace(".", ",")}
+                </Text>
+              </View>
+              <View style={styles.controlesDireita}>
+                <TouchableOpacity
+                  onPress={() => removerItem(item.produtoId)}
+                  style={styles.actionBotao}
+                >
+                  <AntDesign name="delete" size={20} color="#FF3B30" />
+                </TouchableOpacity>
+                <Text style={styles.qntdText}>{item.quantidade}</Text>
+                <TouchableOpacity
+                  onPress={() => incrementarQuantidade(item.produtoId)}
+                  style={styles.actionBotao}
+                >
+                  <AntDesign name="plus" size={18} color="#FF3B30" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+
+      {/* Botão Flutuante */}
+      <View style={styles.containerBotao}>
+        <TouchableOpacity style={styles.botao} onPress={handleContinuar}>
+          <Text style={styles.continua}>Continuar</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -49,84 +214,152 @@ export default function App() {
 const styles = StyleSheet.create({
   tudo: {
     flex: 1,
-    backgroundColor: "#F4F4F6",
+    backgroundColor: "#EAEAEF", // Fundo do Figma
   },
   botaocima: {
-    flex: 1,
-    marginTop: 12,
-    marginLeft: 10,
+    paddingTop: 50,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 180, 180, 0.4)", // Linha sutil rosa/vermelha como no Figma
+    paddingBottom: 8,
+    backgroundColor: "#EAEAEF",
   },
-  voltar: {
-    fontSize: 30,
-    color: "#053225",
+  click: {
+    alignSelf: "flex-start",
+  },
+  scrollBody: {
+    paddingHorizontal: 24,
+    paddingBottom: 100,
   },
   cliente: {
-    flex: 1,
-    marginLeft: 10,
+    marginTop: 32,
+    marginBottom: 24,
   },
-  nome: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#0532259C",
+  inputClienteNome: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 26,
+    color: "#5C756A", // Cor verde acinzentada do Figma
+    marginBottom: 8,
+    padding: 0,
   },
-  cpf: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#0532259C",
+  inputClienteCpf: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 18,
+    color: "#5C756A",
+    padding: 0,
   },
   pesquisa: {
-    flex: 1,
-    marginLeft: 10,
+    marginBottom: 32,
   },
-  produtos: {
-    marginBottom: 12,
-    marginLeft: 2,
+  produtosLabel: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: "#053225",
+    marginBottom: 10,
+  },
+  barraContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF", // Fundo branco na barra de pesquisa
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 48,
+  },
+  lupaIcon: {
+    marginRight: 8,
   },
   barra: {
-    borderRadius: 10,
-    padding: 10,
-    backgroundColor: "white",
+    flex: 1,
+    fontFamily: "Inter_400Regular",
+    fontSize: 16,
+    color: "#1A1A1A",
+  },
+  listaBuscaContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    marginTop: 4,
+    paddingVertical: 8,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  itemBusca: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  itemBuscaTexto: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 16,
+    color: "#053225",
+  },
+  itemBuscaPreco: {
+    fontFamily: "Inter_400Regular",
+    color: "#5C756A",
   },
   lista: {
     flex: 1,
-    marginLeft: 10,
   },
-  itens: {
-    fontSize: 18,
-    color: "#053225",
-  },
-  card: {
-    flexDirection: "row",
-    marginTop: 10,
-  },
-  produto: {
-    fontWeight: "bold",
-    marginRight: 100,
-  },
-  deleta: {
-    marginRight: 20,
-  },
-  qntd: {
-    marginRight: 20,
-  },
-  adiciona: {
-    marginRight: 20,
-  },
-  preco: {
+  itensLabel: {
+    fontFamily: "Inter_400Regular",
     fontSize: 16,
+    color: "#053225",
+    marginBottom: 16,
+  },
+  itemContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+    // Sem background branco, sem padding agressivo
+  },
+  itemInfoEsquerda: {
+    flex: 1,
+  },
+  produtoNome: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 16,
+    color: "#053225",
+    marginBottom: 2,
+  },
+  produtoPreco: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 16,
+    color: "#053225", // Mesma cor do título, sem negrito
+  },
+  controlesDireita: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  actionBotao: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  qntdText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 16,
+    color: "#000000",
+    marginHorizontal: 14,
+  },
+  containerBotao: {
+    position: "absolute",
+    bottom: 24,
+    left: 24,
+    right: 24,
   },
   botao: {
-    flex: 1,
+    width: "100%",
+    height: 54,
+    backgroundColor: "#3EC300", // Verde vibrante do Figma
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
   },
   continua: {
-    borderRadius: 10,
-    paddingHorizontal: 100,
-    paddingVertical: 10,
-    backgroundColor: "#3EC300",
+    fontFamily: "Inter_700Bold",
     color: "#FFFFFF",
-    fontWeight: "bold",
-    fontSize: 17,
+    fontSize: 18,
   },
 });

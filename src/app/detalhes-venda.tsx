@@ -47,6 +47,28 @@ export default function DetalhesVenda() {
     }
   }
 
+  // Função auxiliar para formatar os itens da venda conforme a API e a imagem
+  const renderItem = (item: any, index: number) => {
+    // Calcula o preço total do item (quantidade * preço unitário)
+    const precoTotalItem = item.quantidade * item.precoUnitario;
+
+    return (
+      <View key={index} style={styles.itemRow}>
+        <Text style={styles.itemTextoLeft}>
+          {item.nome} - {item.quantidade}X
+        </Text>
+        <View style={styles.itemTextoRightContainer}>
+          <Text style={styles.itemTextoRight}>
+            R$ {item.precoUnitario.toFixed(2)}
+          </Text>
+          <Text style={styles.itemTextoRight}>
+            R$ {precoTotalItem.toFixed(2)}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
   if (loading)
     return (
       <ActivityIndicator style={styles.loader} size="large" color="#0C7858" />
@@ -56,43 +78,55 @@ export default function DetalhesVenda() {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="close" size={32} color="#000000" />
         </TouchableOpacity>
-        <Text style={styles.titulo}>Detalhes da Venda</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
-        <View style={styles.card}>
-          <Text style={styles.label}>Cliente</Text>
-          <Text style={styles.valor}>
-            {venda?.nomeCliente || "Não informado"}
-          </Text>
+        {venda && (
+          <>
+            {/* Cliente e Valor Total */}
+            <View style={styles.mainInfo}>
+              <Text style={styles.vendaNome}>
+                {venda.nomeCliente || "Cliente"}
+              </Text>
+              <Text style={styles.vendaValor}>
+                R$ {venda.valorTotal.toFixed(2)}
+              </Text>
+            </View>
 
-          <Text style={styles.label}>Data</Text>
-          <Text style={styles.valor}>
-            {new Date(venda?.dataHora).toLocaleString()}
-          </Text>
-
-          <Text style={styles.label}>Pagamento</Text>
-          <Text style={styles.valor}>{venda?.metodoPagamento}</Text>
-        </View>
-
-        <Text style={styles.secaoTitulo}>Itens</Text>
-        {venda?.itens?.map((item: any, index: number) => (
-          <View key={index} style={styles.itemCard}>
-            <Text style={styles.itemNome}>{item.nome}</Text>
-            <Text style={styles.itemQtd}>
-              {item.quantidade}x R$ {item.precoUnitario.toFixed(2)}
+            {/* Data */}
+            <Text style={styles.dataTexto}>
+              {new Date(venda.dataHora).toLocaleString()}
             </Text>
-          </View>
-        ))}
 
-        <View style={styles.totalContainer}>
-          <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValor}>
-            R$ {venda?.valorTotal.toFixed(2)}
-          </Text>
-        </View>
+            {/* Seção Itens */}
+            <Text style={styles.secaoTitulo}>Itens</Text>
+            {venda.itens?.map((item: any, index: number) =>
+              renderItem(item, index),
+            )}
+
+            {/* Seção Método de Pagamento */}
+            <Text style={styles.secaoTitulo}>Método</Text>
+            <Text style={styles.valorMetodo}>
+              {venda.metodoPagamento || "Não informado"}
+            </Text>
+
+            {/* Seção Localização (Placeholder, conforme a imagem) */}
+            <Text style={styles.secaoTitulo}>Localização</Text>
+            <View style={styles.mapaPlaceholder}>
+              {/* O componente de mapa real deve ser integrado aqui.
+                  Abaixo está apenas uma representação visual baseada na imagem fornecida. */}
+              <Ionicons
+                name="airplane"
+                size={24}
+                color="#000000"
+                style={styles.mapIcon}
+              />
+              <Text style={styles.mapText}>Aeroporto de Maringá</Text>
+            </View>
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -100,58 +134,82 @@ export default function DetalhesVenda() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F9F9F9" },
-  loader: { flex: 1 },
+  loader: { flex: 1, justifyContent: "center" },
   header: {
-    backgroundColor: "#053225",
-    padding: 24,
+    backgroundColor: "#F9F9F9",
+    padding: 16,
     paddingTop: 50,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "flex-start",
+    borderBottomWidth: 1,
+    borderBottomColor: "red", // Linha de margem visual da imagem original
   },
-  titulo: {
-    color: "#FFFFFF",
-    fontSize: 20,
+  body: { paddingHorizontal: 24, paddingBottom: 24 },
+  mainInfo: { marginBottom: 12 },
+  vendaNome: {
+    fontSize: 28,
     fontWeight: "bold",
-    marginLeft: 16,
+    color: "#000000",
   },
-  body: { padding: 24 },
-  card: {
-    backgroundColor: "#FFFFFF",
-    padding: 20,
-    borderRadius: 18,
-    marginBottom: 20,
+  vendaValor: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#000000",
   },
-  label: { color: "#7A8B85", fontSize: 12, textTransform: "uppercase" },
-  valor: {
-    color: "#053225",
-    fontSize: 16,
-    marginBottom: 15,
-    fontWeight: "500",
+  dataTexto: {
+    color: "#000000",
+    fontSize: 14,
+    marginBottom: 40,
   },
   secaoTitulo: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#053225",
+    fontSize: 16,
+    color: "#54605C",
+    marginTop: 20,
     marginBottom: 10,
+    textTransform: "capitalize",
   },
-  itemCard: {
-    backgroundColor: "#FFFFFF",
+  itemRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  itemTextoLeft: {
+    fontSize: 16,
+    color: "#000000",
+    fontWeight: "600",
+    flex: 1,
+  },
+  itemTextoRightContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 15,
+  },
+  itemTextoRight: {
+    fontSize: 16,
+    color: "#000000",
+    fontWeight: "500",
+  },
+  valorMetodo: {
+    fontSize: 16,
+    color: "#000000",
+    fontWeight: "600",
+    textTransform: "uppercase",
+  },
+  mapaPlaceholder: {
+    backgroundColor: "#D3F9E1",
     padding: 15,
     borderRadius: 12,
-    marginBottom: 8,
     flexDirection: "row",
-    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 10,
   },
-  itemNome: { fontSize: 14, color: "#053225" },
-  itemQtd: { fontSize: 14, color: "#0C7858", fontWeight: "bold" },
-  totalContainer: {
-    marginTop: 20,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 20,
-    backgroundColor: "#053225",
-    borderRadius: 18,
+  mapIcon: {
+    marginRight: 10,
   },
-  totalLabel: { color: "#FFFFFF", fontSize: 18 },
-  totalValor: { color: "#FFFFFF", fontSize: 18, fontWeight: "bold" },
+  mapText: {
+    fontSize: 14,
+    color: "#000000",
+  },
 });
