@@ -73,6 +73,7 @@ export default function RootLayout() {
       {/* 3. FLUXO DE VENDAS (Ecrãs Inteiros) */}
       <Stack.Screen name="iniciar-venda" />
       <Stack.Screen name="pagamento" />
+      <Stack.Screen name="processar_pagamento" />
 
       {/* 4. MODAIS (Ecrãs Sobrepostos) */}
       {/* A propriedade "presentation: 'modal'" faz a mágica! 
