@@ -1,14 +1,12 @@
-// ⚠️ AVISO DE ÍCONES: Os ícones devem ser importados exclusivamente do ficheiro `src/theme/icons.js`.
-// ⚠️ AVISO FIGMA: Não adivinhem tamanhos de letra ou margens. Olhem sempre a aba 'Tipografia' ou 'Inspect' no Figma.
-// Este é o ecrã Pagamento.
-// View funciona como uma caixa/estrutura para organizar elementos.
-// Text mostra texto na tela.
-// StyleSheet serve para criar estilos parecidos com CSS.
+// Tela de detalhe/edição de um produto.
+// Carrega o produto via GET /produtos/{id} e salva via PUT /produtos/{id}.
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,136 +15,174 @@ import {
   View,
 } from "react-native";
 
-type Props = {
-  visible: boolean;
-  produtoId: string | number;
-  onClose: () => void;
-  onRefreshList: () => void;
-};
+const API_URL = "https://ergane-api.onrender.com";
 
-export default function VisaoEspecificaProduto({
-  visible,
-  produtoId,
-  onClose,
-  onRefreshList,
-}: Props) {
-  const [loading, setLoading] = useState(false);
+export default function VisaoEspecificaProduto() {
+  const router = useRouter();
+  const { id } = useLocalSearchParams(); // ID do produto vindo da lista de produtos
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   const [nome, setNome] = useState("");
   const [preco, setPreco] = useState(0);
+  // custoProducao é exigido pela API no PUT, então preservamos o valor atual.
+  const [custoProducao, setCustoProducao] = useState(0);
   const [estoque, setEstoque] = useState(0);
   const [descricao, setDescricao] = useState("");
   const [categorias, setCategorias] = useState<string[]>([]);
 
   useEffect(() => {
-    setNome("Coxinha de Carne");
-    setPreco(8.5);
-    setEstoque(12);
-    setDescricao("Coxinha de carne feita com carne");
-    setCategorias(["Frito", "Carne"]);
-  }, []);
+    if (id) buscarProduto();
+  }, [id]);
 
-  const handleSalvarAlteracoes = async () => {
+  async function buscarProduto() {
     try {
       setLoading(true);
+      const token = await AsyncStorage.getItem("userToken");
+
+      const { data } = await axios.get(`${API_URL}/produtos/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setNome(data.nome ?? "");
+      setPreco(data.preco ?? 0);
+      setCustoProducao(data.custoProducao ?? 0);
+      setEstoque(data.estoque ?? 0);
+      setDescricao(data.descricao ?? "");
+      setCategorias(data.categorias ?? []);
+    } catch (error: any) {
+      const msg =
+        error?.response?.data?.erro ?? "Não foi possível carregar o produto.";
+      Alert.alert("Erro", msg);
+      router.back();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSalvarAlteracoes() {
+    // Espelha as validações da API para evitar 400 com mensagem genérica.
+    if (!descricao.trim()) {
+      Alert.alert("Aviso", "A descrição é obrigatória.");
+      return;
+    }
+    if (categorias.length === 0) {
+      Alert.alert("Aviso", "Informe ao menos uma categoria.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const token = await AsyncStorage.getItem("userToken");
 
       const payload = {
         nome,
         preco,
+        custoProducao,
         estoque,
         descricao,
         categorias,
       };
 
+      await axios.put(`${API_URL}/produtos/${id}`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
       Alert.alert("Sucesso", "Produto atualizado com sucesso!");
-      onRefreshList();
-      onClose();
-    } catch (error) {
-      Alert.alert("Erro", "Falha ao salvar as alterações do produto.");
+      router.back();
+    } catch (error: any) {
+      const msg =
+        error?.response?.data?.erro ??
+        "Falha ao salvar as alterações do produto.";
+      Alert.alert("Erro", msg);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
-  };
+  }
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={false}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose}>
-            <Text style={styles.headerIcon}>✕</Text>
-          </TouchableOpacity>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} disabled={saving}>
+          <Text style={styles.headerIcon}>✕</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity onPress={handleSalvarAlteracoes}>
+        <TouchableOpacity onPress={handleSalvarAlteracoes} disabled={saving}>
+          {saving ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
             <Text style={styles.headerIcon}>✓</Text>
-          </TouchableOpacity>
-        </View>
-
-        {loading ? (
-          <ActivityIndicator size="large" color="#FFF" style={{ flex: 1 }} />
-        ) : (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 40 }}
-          >
-            <Text style={styles.productName}>{nome}</Text>
-            <Text style={styles.productPrice}>
-              R$ {preco.toFixed(2).replace(".", ",")}
-            </Text>
-
-            <Text style={styles.sectionTitle}>Estoque</Text>
-            <View style={styles.counterRow}>
-              <TouchableOpacity
-                style={styles.counterButton}
-                onPress={() => setEstoque(estoque > 0 ? estoque - 1 : 0)}
-              >
-                <Text style={styles.counterButtonText}>−</Text>
-              </TouchableOpacity>
-
-              <Text style={styles.counterValue}>{estoque}</Text>
-
-              <TouchableOpacity
-                style={styles.counterButton}
-                onPress={() => setEstoque(estoque + 1)}
-              >
-                <Text style={styles.counterButtonText}>+</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Categorias</Text>
-              <TouchableOpacity style={styles.criarButton}>
-                <Text style={styles.criarButtonText}>Criar</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.tagsRow}>
-              {categorias.map((cat, index) => (
-                <Text key={index} style={styles.tagText}>
-                  {cat}
-                </Text>
-              ))}
-              <Text style={styles.tagText}>+</Text>
-            </View>
-
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Variações</Text>
-              <TouchableOpacity style={styles.criarButton}>
-                <Text style={styles.criarButtonText}>Criar</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.sectionTitle}>Descrição</Text>
-            <TextInput
-              style={styles.descriptionInput}
-              multiline
-              value={descricao}
-              onChangeText={setDescricao}
-              placeholder="Escreva algo..."
-              placeholderTextColor="#AFAEAE"
-            />
-          </ScrollView>
-        )}
+          )}
+        </TouchableOpacity>
       </View>
-    </Modal>
+
+      {loading ? (
+        <ActivityIndicator size="large" color="#FFF" style={{ flex: 1 }} />
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40 }}
+        >
+          <Text style={styles.productName}>{nome}</Text>
+          <Text style={styles.productPrice}>
+            R$ {preco.toFixed(2).replace(".", ",")}
+          </Text>
+
+          <Text style={styles.sectionTitle}>Estoque</Text>
+          <View style={styles.counterRow}>
+            <TouchableOpacity
+              style={styles.counterButton}
+              onPress={() => setEstoque(estoque > 0 ? estoque - 1 : 0)}
+            >
+              <Text style={styles.counterButtonText}>−</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.counterValue}>{estoque}</Text>
+
+            <TouchableOpacity
+              style={styles.counterButton}
+              onPress={() => setEstoque(estoque + 1)}
+            >
+              <Text style={styles.counterButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Categorias</Text>
+            <TouchableOpacity style={styles.criarButton}>
+              <Text style={styles.criarButtonText}>Criar</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.tagsRow}>
+            {categorias.map((cat, index) => (
+              <Text key={index} style={styles.tagText}>
+                {cat}
+              </Text>
+            ))}
+            <Text style={styles.tagText}>+</Text>
+          </View>
+
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Variações</Text>
+            <TouchableOpacity style={styles.criarButton}>
+              <Text style={styles.criarButtonText}>Criar</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.sectionTitle}>Descrição</Text>
+          <TextInput
+            style={styles.descriptionInput}
+            multiline
+            value={descricao}
+            onChangeText={setDescricao}
+            placeholder="Escreva algo..."
+            placeholderTextColor="#AFAEAE"
+          />
+        </ScrollView>
+      )}
+    </View>
   );
 }
 

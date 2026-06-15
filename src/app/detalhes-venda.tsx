@@ -39,8 +39,11 @@ export default function DetalhesVenda() {
       );
 
       setVenda(response.data);
-    } catch (error) {
-      Alert.alert("Erro", "Não foi possível carregar os detalhes desta venda.");
+    } catch (error: any) {
+      const msg =
+        error?.response?.data?.erro ??
+        "Não foi possível carregar os detalhes desta venda.";
+      Alert.alert("Erro", msg);
       router.back();
     } finally {
       setLoading(false);
