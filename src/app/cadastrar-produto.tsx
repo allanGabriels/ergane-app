@@ -31,6 +31,13 @@ export default function CadastrarProdutoScreen() {
   const [modalCategoriaVisivel, setModalCategoriaVisivel] = useState(false);
   const [novaCategoria, setNovaCategoria] = useState("");
 
+  // Seleção de categorias existentes (GET /categorias)
+  const [categoriasDisponiveis, setCategoriasDisponiveis] = useState<
+    { id: string; nome: string }[]
+  >([]);
+  const [modalSelecaoVisivel, setModalSelecaoVisivel] = useState(false);
+  const [loadingCategorias, setLoadingCategorias] = useState(false);
+
   const { width } = useWindowDimensions();
   const larguraBase = Math.min(width, 412);
   const escala = larguraBase / 412;
@@ -59,6 +66,47 @@ export default function CadastrarProdutoScreen() {
   // Permite apenas números na digitação do estoque
   function handleEstoqueChange(text: string) {
     setEstoqueStr(text.replace(/[^0-9]/g, ""));
+  }
+
+  // Formata o preço como moeda a partir dos dígitos digitados (123 -> "1,23").
+  function handlePrecoChange(text: string) {
+    const numericText = text.replace(/[^0-9]/g, "");
+    if (!numericText) {
+      setPreco("");
+      return;
+    }
+    const valorFloat = parseInt(numericText, 10) / 100;
+    setPreco(valorFloat.toFixed(2).replace(".", ","));
+  }
+
+  // Carrega as categorias do usuário e abre o modal de seleção.
+  async function abrirSelecaoCategorias() {
+    setModalSelecaoVisivel(true);
+    try {
+      setLoadingCategorias(true);
+      const token = await AsyncStorage.getItem("userToken");
+
+      const { data } = await axios.get(
+        "https://ergane-api.onrender.com/categorias",
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      setCategoriasDisponiveis(data ?? []);
+    } catch (error: any) {
+      const msg =
+        error?.response?.data?.erro ??
+        "Não foi possível carregar as categorias.";
+      Alert.alert("Erro", msg);
+    } finally {
+      setLoadingCategorias(false);
+    }
+  }
+
+  // Marca/desmarca uma categoria na seleção.
+  function toggleCategoria(nome: string) {
+    setCategoriasSelecionadas((prev) =>
+      prev.includes(nome) ? prev.filter((c) => c !== nome) : [...prev, nome],
+    );
   }
 
   async function salvarProduto() {
@@ -120,13 +168,19 @@ export default function CadastrarProdutoScreen() {
       setLoading(true);
       const token = await AsyncStorage.getItem("userToken");
 
-      await axios.post(
+      const { data } = await axios.post(
         "https://ergane-api.onrender.com/categorias",
         { nome: novaCategoria },
         { headers: { Authorization: `Bearer ${token}` } },
       );
 
+      // Já deixa a nova categoria selecionada e disponível para reuso.
       setCategoriasSelecionadas((prev) => [...prev, novaCategoria]);
+      setCategoriasDisponiveis((prev) =>
+        prev.some((c) => c.nome === novaCategoria)
+          ? prev
+          : [...prev, data ?? { id: novaCategoria, nome: novaCategoria }],
+      );
       setNovaCategoria("");
       setModalCategoriaVisivel(false);
     } catch (error: any) {
@@ -175,14 +229,17 @@ export default function CadastrarProdutoScreen() {
             onChangeText={setNome}
           />
 
-          <TextInput
-            style={styles.precoInput}
-            placeholder="R$0,00"
-            placeholderTextColor={PALETA.cinzaApagado}
-            keyboardType="numeric"
-            value={preco}
-            onChangeText={setPreco}
-          />
+          <View style={styles.precoRow}>
+            <Text style={styles.precoMoeda}>R$</Text>
+            <TextInput
+              style={styles.precoInput}
+              placeholder="0,00"
+              placeholderTextColor={PALETA.cinzaApagado}
+              keyboardType="numeric"
+              value={preco}
+              onChangeText={handlePrecoChange}
+            />
+          </View>
 
           <Text style={styles.estoqueLabel}>Estoque</Text>
 
@@ -216,16 +273,11 @@ export default function CadastrarProdutoScreen() {
               <Text style={styles.label}>Categorias</Text>
               <TouchableOpacity
                 style={styles.selecionarArea}
-                onPress={() =>
-                  Alert.alert(
-                    "Aviso",
-                    "Seleção de categorias em desenvolvimento",
-                  )
-                }
+                onPress={abrirSelecaoCategorias}
               >
-                <Text style={styles.selecionarTexto}>
+                <Text style={styles.selecionarTexto} numberOfLines={1}>
                   {categoriasSelecionadas.length > 0
-                    ? categoriasSelecionadas[0]
+                    ? categoriasSelecionadas.join(", ")
                     : "Selecionar"}
                 </Text>
                 <Text style={styles.maisCategoria}>+</Text>
@@ -298,6 +350,55 @@ export default function CadastrarProdutoScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Modal de Seleção de Categorias existentes */}
+      <Modal
+        visible={modalSelecaoVisivel}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalSelecaoVisivel(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCategoria}>
+            <Text style={styles.modalTitulo}>Selecionar Categorias</Text>
+
+            {loadingCategorias ? (
+              <ActivityIndicator color={PALETA.roxoEscuro} />
+            ) : categoriasDisponiveis.length === 0 ? (
+              <Text style={styles.modalVazio}>
+                Nenhuma categoria criada ainda. Use o botão &quot;Criar&quot;.
+              </Text>
+            ) : (
+              <ScrollView style={styles.modalLista}>
+                {categoriasDisponiveis.map((cat) => {
+                  const selecionada = categoriasSelecionadas.includes(cat.nome);
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={styles.catItem}
+                      onPress={() => toggleCategoria(cat.nome)}
+                    >
+                      <Text style={styles.catItemTexto}>{cat.nome}</Text>
+                      <Text style={styles.catItemCheck}>
+                        {selecionada ? "✓" : ""}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            <View style={styles.modalBotoes}>
+              <TouchableOpacity
+                style={styles.modalBotaoCriar}
+                onPress={() => setModalSelecaoVisivel(false)}
+              >
+                <Text style={styles.modalTextoCriar}>Concluir</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -353,9 +454,19 @@ function criarStyles(escala: number, larguraBase: number) {
       color: PALETA.branco, // Ajustado para branco conforme o Figma
       padding: 0,
     },
-    precoInput: {
-      width: "100%",
+    precoRow: {
+      flexDirection: "row",
+      alignItems: "center",
       marginTop: s(12),
+    },
+    precoMoeda: {
+      fontFamily: "Inter_700Bold",
+      fontSize: s(28),
+      color: PALETA.cinzaApagado,
+      marginRight: s(6),
+    },
+    precoInput: {
+      flex: 1,
       fontFamily: "Inter_700Bold",
       fontSize: s(28),
       color: PALETA.cinzaApagado,
@@ -514,6 +625,33 @@ function criarStyles(escala: number, larguraBase: number) {
       fontFamily: "Inter_700Bold",
       fontSize: s(16),
       color: PALETA.branco,
+    },
+    modalVazio: {
+      fontFamily: "Inter_400Regular",
+      fontSize: s(14),
+      color: PALETA.cinzaApagado,
+      paddingVertical: s(8),
+    },
+    modalLista: {
+      maxHeight: s(260),
+    },
+    catItem: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingVertical: s(12),
+      borderBottomWidth: 1,
+      borderBottomColor: "#EEE",
+    },
+    catItemTexto: {
+      fontFamily: "Inter_400Regular",
+      fontSize: s(16),
+      color: PALETA.preto,
+    },
+    catItemCheck: {
+      fontFamily: "Inter_700Bold",
+      fontSize: s(16),
+      color: PALETA.roxoEscuro,
     },
   });
 }
