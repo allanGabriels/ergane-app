@@ -69,24 +69,34 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.formContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="CPF"
-          placeholderTextColor="#7A8B85"
-          value={cpf}
-          onChangeText={setCpf}
-          keyboardType="numeric"
-          autoCapitalize="none"
-        />
+        <Text style={styles.legendaObrigatorio}>
+          <Text style={styles.asterisco}>*</Text> Campos obrigatórios
+        </Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Senha"
-          placeholderTextColor="#7A8B85"
-          value={senha}
-          onChangeText={setSenha}
-          secureTextEntry={true}
-        />
+        <View style={styles.campoRow}>
+          <TextInput
+            style={styles.input}
+            placeholder="CPF"
+            placeholderTextColor="#7A8B85"
+            value={cpf}
+            onChangeText={setCpf}
+            keyboardType="numeric"
+            autoCapitalize="none"
+          />
+          <Text style={styles.asterisco}>*</Text>
+        </View>
+
+        <View style={styles.campoRow}>
+          <TextInput
+            style={styles.input}
+            placeholder="Senha"
+            placeholderTextColor="#7A8B85"
+            value={senha}
+            onChangeText={setSenha}
+            secureTextEntry={true}
+          />
+          <Text style={styles.asterisco}>*</Text>
+        </View>
 
         <TouchableOpacity
           style={[styles.botao, loading && { opacity: 0.7 }]}
@@ -116,12 +126,28 @@ const styles = StyleSheet.create({
   logo: { width: 180, height: 180, resizeMode: "contain", marginBottom: -20 },
   nome: { color: "#FFFFFF", fontSize: 48, fontWeight: "600", letterSpacing: 1 },
   formContainer: { width: "100%", maxWidth: 340 },
+  legendaObrigatorio: {
+    color: "#D9D9D9",
+    fontSize: 12,
+    marginBottom: 12,
+  },
+  campoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  asterisco: {
+    color: "#FF6B6B",
+    fontSize: 22,
+    fontWeight: "bold",
+    marginLeft: 10,
+  },
   input: {
+    flex: 1,
     backgroundColor: "#D9D9D9",
     borderRadius: 30,
     paddingVertical: 16,
     paddingHorizontal: 24,
-    marginBottom: 16,
     fontSize: 16,
     color: "#053225",
   },

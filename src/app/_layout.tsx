@@ -5,7 +5,9 @@ import {
   Inter_700Bold,
   useFonts,
 } from "@expo-google-fonts/inter";
-import { Stack } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 
@@ -31,6 +33,25 @@ export default function RootLayout() {
     }
   }, [loaded, error]);
 
+  // Logout automático: qualquer 401 (token ausente/expirado/segredo trocado)
+  // limpa a sessão e volta para o login. Ignora o próprio /login, que trata
+  // o 401 de credenciais inválidas na própria tela.
+  useEffect(() => {
+    const interceptorId = axios.interceptors.response.use(
+      (response) => response,
+      async (err) => {
+        const url = err.config?.url ?? "";
+        if (err.response?.status === 401 && !url.includes("/login")) {
+          await AsyncStorage.removeItem("userToken");
+          await AsyncStorage.removeItem("userName");
+          router.replace("/login");
+        }
+        return Promise.reject(err);
+      },
+    );
+    return () => axios.interceptors.response.eject(interceptorId);
+  }, []);
+
   // Se as fontes ainda não carregaram e não há erro, não renderiza a árvore
   // para evitar o efeito visual de texto a piscar ou a mudar de tamanho repentinamente.
   if (!loaded && !error) {
@@ -52,6 +73,7 @@ export default function RootLayout() {
       {/* 3. FLUXO DE VENDAS (Ecrãs Inteiros) */}
       <Stack.Screen name="iniciar-venda" />
       <Stack.Screen name="pagamento" />
+      <Stack.Screen name="processar_pagamento" />
 
       {/* 4. MODAIS (Ecrãs Sobrepostos) */}
       {/* A propriedade "presentation: 'modal'" faz a mágica! 

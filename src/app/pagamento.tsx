@@ -1,4 +1,4 @@
-import { AntDesign, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -82,29 +82,40 @@ export default function Pagamento() {
       return;
     }
 
+    // A API exige precoTotal em cada item (SaleItemRequest @NotNull @Positive).
+    // O servidor recalcula os valores, mas os campos precisam vir preenchidos.
+    const itens = (vendaInput?.itens || []).map((item: any) => ({
+      produtoId: item.produtoId,
+      nome: item.nome,
+      quantidade: item.quantidade,
+      precoUnitario: item.precoUnitario,
+      precoTotal: Number((item.precoUnitario * item.quantidade).toFixed(2)),
+    }));
+
+    const payload = {
+      nomeCliente: vendaInput?.nomeCliente,
+      cpfCliente: vendaInput?.cpfCliente,
+      metodoPagamento: mapMetodoApi(metodo),
+      valorTotal: total,
+      valorRecebido: metodo === "Dinheiro" ? valorRecebido : total,
+      troco: metodo === "Dinheiro" ? troco : 0.0,
+      itens,
+    };
+
+    // Pix/Cartão: vai para a tela de processamento, que registra a venda e
+    // mostra "aguardando pagamento" -> "Venda Concluída!".
+    if (metodo !== "Dinheiro") {
+      router.push({
+        pathname: "/processar_pagamento",
+        params: { dados: JSON.stringify(payload) },
+      });
+      return;
+    }
+
+    // Dinheiro: registra na hora.
     try {
       setLoading(true);
       const token = await AsyncStorage.getItem("userToken");
-
-      // A API exige precoTotal em cada item (SaleItemRequest @NotNull @Positive).
-      // O servidor recalcula os valores, mas os campos precisam vir preenchidos.
-      const itens = (vendaInput?.itens || []).map((item: any) => ({
-        produtoId: item.produtoId,
-        nome: item.nome,
-        quantidade: item.quantidade,
-        precoUnitario: item.precoUnitario,
-        precoTotal: Number((item.precoUnitario * item.quantidade).toFixed(2)),
-      }));
-
-      const payload = {
-        nomeCliente: vendaInput?.nomeCliente,
-        cpfCliente: vendaInput?.cpfCliente,
-        metodoPagamento: mapMetodoApi(metodo),
-        valorTotal: total,
-        valorRecebido: metodo === "Dinheiro" ? valorRecebido : total,
-        troco: metodo === "Dinheiro" ? troco : 0.0,
-        itens,
-      };
 
       await axios.post("https://ergane-api.onrender.com/vendas", payload, {
         headers: { Authorization: `Bearer ${token}` },
@@ -238,9 +249,13 @@ export default function Pagamento() {
                 </Text>
               </View>
               <View style={styles.controlesDireita}>
-                <AntDesign name="delete" size={18} color="#FF3B30" />
-                <Text style={styles.qntdText}>{item.quantidade}</Text>
-                <AntDesign name="plus" size={14} color="#FF3B30" />
+                <Text style={styles.qntdText}>x{item.quantidade}</Text>
+                <Text style={styles.produtoPreco}>
+                  R$
+                  {(item.precoUnitario * item.quantidade)
+                    .toFixed(2)
+                    .replace(".", ",")}
+                </Text>
               </View>
             </View>
           ))}
