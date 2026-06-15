@@ -1,296 +1,157 @@
-import React, { useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import {
-  View,
-  Text,
-  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-type MetodoPagamento = 'PIX' | 'DINHEIRO' | 'CARTAO';
+export default function DetalhesVenda() {
+  const { id } = useLocalSearchParams(); // Captura o ID da venda que veio da Home
+  const [venda, setVenda] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
-type Item = {
-  nome: string;
-  quantidade: number;
-  precoUnitario: string;
-  precoTotal: string;
-};
+  useFocusEffect(
+    useCallback(() => {
+      if (id) buscarDetalhesDaVenda();
+    }, [id]),
+  );
 
-type Venda = {
-  nomeCliente: string;
-  valorTotal: string;
-  dataHora: string;
-  itens: Item[];
-  metodo: MetodoPagamento;
-  valorRecebido?: string;
-  troco?: string;
-  modalidadeCartao?: string;
-  valorParcela?: string;
-};
+  async function buscarDetalhesDaVenda() {
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem("userToken");
 
-type Props = {
-  venda?: Venda;
-  onClose: () => void;
-};
+      // Chamada à rota: GET /vendas/{id}
+      const response = await axios.get(
+        `https://ergane-api.onrender.com/vendas/${id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
-const METODOS: MetodoPagamento[] = ['PIX', 'DINHEIRO', 'CARTAO'];
-
-const LABELS: Record<MetodoPagamento, string> = {
-  PIX: 'PIX',
-  DINHEIRO: 'Dinheiro',
-  CARTAO: 'Cartão',
-};
-
-const vendaMock: Venda = {
-  nomeCliente: 'João Choma',
-  valorTotal: '27,50',
-  dataHora: '19 MAI 2026 14:52',
-  itens: [
-    { nome: 'Coxinha de Carne', quantidade: 3, precoUnitario: '8,50', precoTotal: '25,50' },
-    { nome: 'Coquinha', quantidade: 1, precoUnitario: '2,00', precoTotal: '2,00' },
-  ],
-  metodo: 'PIX',
-  valorRecebido: '50,00',
-  troco: '24,50',
-  modalidadeCartao: 'Parcelado em 2X',
-  valorParcela: '13,75',
-};
-
-export default function DetalhesVenda({ venda = vendaMock, onClose }: Props) {
-  const [metodoAtivo, setMetodoAtivo] = useState<MetodoPagamento>(venda.metodo);
-
-  const renderMetodoPagamento = () => {
-    switch (metodoAtivo) {
-      case 'DINHEIRO':
-        return (
-          <View style={styles.metodoInfo}>
-            <Text style={styles.metodoTitulo}>Dinheiro</Text>
-            <View style={styles.metodoRow}>
-              <Text style={styles.metodoDetalhe}>Recebido: R$ {venda.valorRecebido}</Text>
-              <Text style={styles.metodoDetalhe}>Devolvido: R$ {venda.troco}</Text>
-            </View>
-          </View>
-        );
-      case 'CARTAO':
-        return (
-          <View style={styles.metodoInfo}>
-            <Text style={styles.metodoTitulo}>Cartão</Text>
-            <View style={styles.metodoRow}>
-              <Text style={styles.metodoDetalhe}>{venda.modalidadeCartao}</Text>
-              <Text style={styles.metodoDetalhe}>R$ {venda.valorParcela}</Text>
-            </View>
-          </View>
-        );
-      case 'PIX':
-      default:
-        return (
-          <View style={styles.metodoInfo}>
-            <Text style={styles.metodoTitulo}>PIX</Text>
-          </View>
-        );
+      setVenda(response.data);
+    } catch (error) {
+      Alert.alert("Erro", "Não foi possível carregar os detalhes desta venda.");
+      router.back();
+    } finally {
+      setLoading(false);
     }
-  };
+  }
+
+  if (loading)
+    return (
+      <ActivityIndicator style={styles.loader} size="large" color="#0C7858" />
+    );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-        <Text style={styles.closeIcon}>✕</Text>
-      </TouchableOpacity>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Text style={styles.titulo}>Detalhes da Venda</Text>
+      </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.body}>
+        <View style={styles.card}>
+          <Text style={styles.label}>Cliente</Text>
+          <Text style={styles.valor}>
+            {venda?.nomeCliente || "Não informado"}
+          </Text>
 
-        <View style={styles.headerSection}>
-          <Text style={styles.title}>{venda.nomeCliente}</Text>
-          <Text style={styles.title}>R$ {venda.valorTotal}</Text>
-          <Text style={styles.date}>{venda.dataHora}</Text>
+          <Text style={styles.label}>Data</Text>
+          <Text style={styles.valor}>
+            {new Date(venda?.dataHora).toLocaleString()}
+          </Text>
+
+          <Text style={styles.label}>Pagamento</Text>
+          <Text style={styles.valor}>{venda?.metodoPagamento}</Text>
         </View>
 
-        <View style={styles.divider} />
-
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Itens</Text>
-          {venda.itens.map((item, index) => (
-            <View key={index} style={styles.itemRow}>
-              <View style={styles.itemLeft}>
-                <Text style={styles.itemNome}>{item.nome}</Text>
-                <Text style={styles.itemQtd}> - {item.quantidade}X</Text>
-              </View>
-              <View style={styles.itemRight}>
-                <Text style={styles.itemPrecoUnit}>R${item.precoUnitario}</Text>
-                <Text style={styles.itemPrecoTotal}>R${item.precoTotal}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Método</Text>
-
-          <View style={styles.toggleContainer}>
-            {METODOS.map((metodo) => (
-              <TouchableOpacity
-                key={metodo}
-                style={[
-                  styles.toggleButton,
-                  metodoAtivo === metodo && styles.toggleButtonAtivo,
-                ]}
-                onPress={() => setMetodoAtivo(metodo)}
-              >
-                <Text
-                  style={[
-                    styles.toggleLabel,
-                    metodoAtivo === metodo && styles.toggleLabelAtivo,
-                  ]}
-                >
-                  {LABELS[metodo]}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        <Text style={styles.secaoTitulo}>Itens</Text>
+        {venda?.itens?.map((item: any, index: number) => (
+          <View key={index} style={styles.itemCard}>
+            <Text style={styles.itemNome}>{item.nome}</Text>
+            <Text style={styles.itemQtd}>
+              {item.quantidade}x R$ {item.precoUnitario.toFixed(2)}
+            </Text>
           </View>
+        ))}
 
-          {renderMetodoPagamento()}
+        <View style={styles.totalContainer}>
+          <Text style={styles.totalLabel}>Total</Text>
+          <Text style={styles.totalValor}>
+            R$ {venda?.valorTotal.toFixed(2)}
+          </Text>
         </View>
-
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
-const VERDE = '#053225';
-const BG = '#F4F4F6';
-const CINZA = '#9999A1';
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: BG,
+  container: { flex: 1, backgroundColor: "#F9F9F9" },
+  loader: { flex: 1 },
+  header: {
+    backgroundColor: "#053225",
+    padding: 24,
+    paddingTop: 50,
+    flexDirection: "row",
+    alignItems: "center",
   },
-  scroll: {
-    paddingBottom: 40,
+  titulo: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "bold",
+    marginLeft: 16,
   },
-  closeButton: {
+  body: { padding: 24 },
+  card: {
+    backgroundColor: "#FFFFFF",
     padding: 20,
-    alignSelf: 'flex-start',
+    borderRadius: 18,
+    marginBottom: 20,
   },
-  closeIcon: {
-    fontSize: 26,
-    color: VERDE,
-    fontWeight: '500',
+  label: { color: "#7A8B85", fontSize: 12, textTransform: "uppercase" },
+  valor: {
+    color: "#053225",
+    fontSize: 16,
+    marginBottom: 15,
+    fontWeight: "500",
   },
-  headerSection: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: VERDE,
-    lineHeight: 34,
-  },
-  date: {
-    fontSize: 13,
-    color: CINZA,
-    marginTop: 6,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E0E0E6',
-  },
-  section: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  sectionLabel: {
-    fontSize: 13,
-    color: CINZA,
+  secaoTitulo: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#053225",
     marginBottom: 10,
   },
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  itemCard: {
+    backgroundColor: "#FFFFFF",
+    padding: 15,
+    borderRadius: 12,
     marginBottom: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
-  itemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+  itemNome: { fontSize: 14, color: "#053225" },
+  itemQtd: { fontSize: 14, color: "#0C7858", fontWeight: "bold" },
+  totalContainer: {
+    marginTop: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 20,
+    backgroundColor: "#053225",
+    borderRadius: 18,
   },
-  itemNome: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: VERDE,
-  },
-  itemQtd: {
-    fontSize: 15,
-    color: VERDE,
-  },
-  itemRight: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  itemPrecoUnit: {
-    fontSize: 13,
-    color: CINZA,
-    minWidth: 48,
-    textAlign: 'right',
-  },
-  itemPrecoTotal: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: VERDE,
-    minWidth: 48,
-    textAlign: 'right',
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#E4E4EA',
-    borderRadius: 10,
-    padding: 3,
-    marginBottom: 16,
-  },
-  toggleButton: {
-    flex: 1,
-    paddingVertical: 7,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  toggleButtonAtivo: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  toggleLabel: {
-    fontSize: 13,
-    color: CINZA,
-    fontWeight: '500',
-  },
-  toggleLabelAtivo: {
-    color: VERDE,
-    fontWeight: '700',
-  },
-  metodoInfo: {
-    minHeight: 40,
-  },
-  metodoTitulo: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: VERDE,
-  },
-  metodoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  metodoDetalhe: {
-    fontSize: 14,
-    color: VERDE,
-    fontWeight: '500',
-  },
+  totalLabel: { color: "#FFFFFF", fontSize: 18 },
+  totalValor: { color: "#FFFFFF", fontSize: 18, fontWeight: "bold" },
 });
