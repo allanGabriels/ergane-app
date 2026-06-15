@@ -1,4 +1,4 @@
-import { AntDesign, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -238,9 +238,13 @@ export default function Pagamento() {
                 </Text>
               </View>
               <View style={styles.controlesDireita}>
-                <AntDesign name="delete" size={18} color="#FF3B30" />
-                <Text style={styles.qntdText}>{item.quantidade}</Text>
-                <AntDesign name="plus" size={14} color="#FF3B30" />
+                <Text style={styles.qntdText}>x{item.quantidade}</Text>
+                <Text style={styles.produtoPreco}>
+                  R$
+                  {(item.precoUnitario * item.quantidade)
+                    .toFixed(2)
+                    .replace(".", ",")}
+                </Text>
               </View>
             </View>
           ))}

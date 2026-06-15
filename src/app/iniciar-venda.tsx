@@ -78,6 +78,16 @@ export default function IniciarVenda() {
     );
 
   const handleContinuar = () => {
+    if (!nomeCliente.trim()) {
+      Alert.alert("Aviso", "Informe o nome do cliente.");
+      return;
+    }
+
+    if (!cpfCliente.trim()) {
+      Alert.alert("Aviso", "Informe o CPF do cliente.");
+      return;
+    }
+
     if (itensCarrinho.length === 0) {
       Alert.alert("Aviso", "O carrinho não pode estar vazio.");
       return;
@@ -113,21 +123,30 @@ export default function IniciarVenda() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.cliente}>
-          <TextInput
-            style={styles.inputClienteNome}
-            placeholder="Nome Cliente"
-            placeholderTextColor="#5C756A"
-            value={nomeCliente}
-            onChangeText={setNomeCliente}
-          />
-          <TextInput
-            style={styles.inputClienteCpf}
-            placeholder="Cpf (opcional)"
-            placeholderTextColor="#5C756A"
-            value={cpfCliente}
-            onChangeText={setCpfCliente}
-            keyboardType="numeric"
-          />
+          <Text style={styles.legendaObrigatorio}>
+            <Text style={styles.asterisco}>*</Text> Campos obrigatórios
+          </Text>
+          <View style={styles.campoRow}>
+            <TextInput
+              style={styles.inputClienteNome}
+              placeholder="Nome Cliente"
+              placeholderTextColor="#5C756A"
+              value={nomeCliente}
+              onChangeText={setNomeCliente}
+            />
+            <Text style={styles.asterisco}>*</Text>
+          </View>
+          <View style={styles.campoRow}>
+            <TextInput
+              style={styles.inputClienteCpf}
+              placeholder="Cpf"
+              placeholderTextColor="#5C756A"
+              value={cpfCliente}
+              onChangeText={setCpfCliente}
+              keyboardType="numeric"
+            />
+            <Text style={styles.asterisco}>*</Text>
+          </View>
         </View>
 
         {/* Barra de Pesquisa */}
@@ -235,14 +254,32 @@ const styles = StyleSheet.create({
     marginTop: 32,
     marginBottom: 24,
   },
+  legendaObrigatorio: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: "#5C756A",
+    marginBottom: 10,
+  },
+  campoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  asterisco: {
+    color: "#FF6B6B",
+    fontFamily: "Inter_700Bold",
+    fontSize: 20,
+    marginLeft: 6,
+  },
   inputClienteNome: {
+    flex: 1,
     fontFamily: "Inter_700Bold",
     fontSize: 26,
     color: "#5C756A", // Cor verde acinzentada do Figma
-    marginBottom: 8,
     padding: 0,
   },
   inputClienteCpf: {
+    flex: 1,
     fontFamily: "Inter_700Bold",
     fontSize: 18,
     color: "#5C756A",

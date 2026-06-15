@@ -221,13 +221,20 @@ export default function CadastrarProdutoScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          <TextInput
-            style={styles.nomeInput}
-            placeholder="Nome"
-            placeholderTextColor={PALETA.cinzaApagado}
-            value={nome}
-            onChangeText={setNome}
-          />
+          <Text style={styles.legendaObrigatorio}>
+            <Text style={styles.asterisco}>*</Text> Campos obrigatórios
+          </Text>
+
+          <View style={styles.campoNomeRow}>
+            <TextInput
+              style={styles.nomeInput}
+              placeholder="Nome"
+              placeholderTextColor={PALETA.cinzaApagado}
+              value={nome}
+              onChangeText={setNome}
+            />
+            <Text style={styles.asterisco}>*</Text>
+          </View>
 
           <View style={styles.precoRow}>
             <Text style={styles.precoMoeda}>R$</Text>
@@ -239,6 +246,7 @@ export default function CadastrarProdutoScreen() {
               value={preco}
               onChangeText={handlePrecoChange}
             />
+            <Text style={styles.asterisco}>*</Text>
           </View>
 
           <Text style={styles.estoqueLabel}>Estoque</Text>
@@ -270,7 +278,9 @@ export default function CadastrarProdutoScreen() {
 
           <View style={styles.linhaCategoria}>
             <View>
-              <Text style={styles.label}>Categorias</Text>
+              <Text style={styles.label}>
+                Categorias <Text style={styles.asterisco}>*</Text>
+              </Text>
               <TouchableOpacity
                 style={styles.selecionarArea}
                 onPress={abrirSelecaoCategorias}
@@ -302,7 +312,9 @@ export default function CadastrarProdutoScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.descricaoLabel}>Descrição</Text>
+          <Text style={styles.descricaoLabel}>
+            Descrição <Text style={styles.asterisco}>*</Text>
+          </Text>
 
           <TextInput
             style={styles.descricaoInput}
@@ -446,9 +458,25 @@ function criarStyles(escala: number, larguraBase: number) {
     scrollContent: {
       paddingBottom: s(40),
     },
+    legendaObrigatorio: {
+      marginTop: s(20),
+      fontFamily: "Inter_400Regular",
+      fontSize: s(12),
+      color: PALETA.cinzaApagado,
+    },
+    asterisco: {
+      color: "#FF6B6B",
+      fontFamily: "Inter_700Bold",
+      fontSize: s(20),
+      marginLeft: s(6),
+    },
+    campoNomeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: s(14),
+    },
     nomeInput: {
-      width: "100%",
-      marginTop: s(34),
+      flex: 1,
       fontFamily: "Inter_700Bold",
       fontSize: s(28),
       color: PALETA.branco, // Ajustado para branco conforme o Figma
