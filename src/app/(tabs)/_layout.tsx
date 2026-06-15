@@ -1,4 +1,6 @@
-import { router, Tabs, usePathname } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Redirect, router, Tabs, usePathname } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   Alert,
   StyleSheet,
@@ -106,6 +108,19 @@ function FooterMenu() {
 }
 
 export default function TabsLayout() {
+  // Guarda de autenticação: sem token salvo, redireciona para o login em vez
+  // de renderizar a home (que dispara chamadas protegidas e quebra com 401).
+  const [auth, setAuth] = useState<"loading" | "authed" | "guest">("loading");
+
+  useEffect(() => {
+    AsyncStorage.getItem("userToken").then((token) =>
+      setAuth(token ? "authed" : "guest"),
+    );
+  }, []);
+
+  if (auth === "loading") return null;
+  if (auth === "guest") return <Redirect href="/login" />;
+
   return (
     <Tabs
       screenOptions={{
