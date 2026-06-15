@@ -1,91 +1,148 @@
-import { Ionicons } from "@expo/vector-icons"; // Ícones nativos do Expo
-import { Tabs, usePathname, useRouter } from "expo-router";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { router, Tabs, usePathname } from "expo-router";
+import {
+  Alert,
+  StyleSheet,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from "react-native";
+import { PALETA } from "../../constants/theme";
+import {
+  BagIcon,
+  ChartIcon,
+  HomeIcon,
+  PlusIcon,
+  SettingsIcon,
+} from "../../theme/icons";
 
-export default function TabLayout() {
-  const router = useRouter();
-  const pathname = usePathname(); // Isso descobre em qual aba estamos!
+function FooterMenu() {
+  const pathname = usePathname();
+  const { width } = useWindowDimensions();
 
-  // Lógica inteligente do botão +
-  const handleAddPress = () => {
-    if (pathname === "/produtos") {
-      router.push("/cadastrar-produto"); // Abre a tela de criar produto
+  const larguraBase = Math.min(width, 412);
+  const escala = larguraBase / 412;
+
+  const homeSelecionado = pathname === "/(tabs)"; // Ajustado para o nome da pasta tabs
+  const produtosSelecionado = pathname.includes("produtos");
+
+  // Lógica Dinâmica: O '+' muda de comportamento conforme a tela
+  const handlePlusPress = () => {
+    if (pathname === "/(tabs)") {
+      router.push("/iniciar-venda");
+    } else if (pathname.includes("produtos")) {
+      router.push("/cadastrar-produto");
     } else {
-      router.push("/iniciar-venda"); // Na Home (ou outras), abre nova venda
+      router.push("/iniciar-venda");
     }
   };
 
   return (
+    <View
+      style={[
+        styles.footer,
+        {
+          width: larguraBase,
+          height: 88 * escala,
+          alignSelf: "center",
+          paddingHorizontal: 28 * escala,
+        },
+      ]}
+    >
+      <TouchableOpacity
+        style={styles.tabButton}
+        onPress={() => router.push("/(tabs)")}
+      >
+        <HomeIcon
+          size={36 * escala}
+          color={homeSelecionado ? PALETA.roxo : PALETA.preto}
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.tabButton}
+        onPress={() => router.push("/(tabs)/produtos")}
+      >
+        <BagIcon
+          size={36 * escala}
+          color={produtosSelecionado ? PALETA.roxo : PALETA.preto}
+        />
+      </TouchableOpacity>
+
+      {/* Botão Central Dinâmico */}
+      <TouchableOpacity
+        style={[
+          styles.plusButton,
+          {
+            width: 56 * escala,
+            height: 56 * escala,
+            borderRadius: 28 * escala,
+            marginBottom: 26 * escala,
+          },
+        ]}
+        onPress={handlePlusPress}
+      >
+        <PlusIcon size={38 * escala} color={PALETA.branco} />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.tabButton}
+        onPress={() =>
+          Alert.alert("Aviso", "Funcionalidade em desenvolvimento")
+        }
+      >
+        <ChartIcon size={36 * escala} color={PALETA.preto} />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.tabButton}
+        onPress={() =>
+          Alert.alert("Aviso", "Funcionalidade em desenvolvimento")
+        }
+      >
+        <SettingsIcon size={36 * escala} color={PALETA.preto} />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+export default function TabsLayout() {
+  return (
     <Tabs
       screenOptions={{
-        headerShown: false, // Esconde aquele cabeçalho feio padrão
-        tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: "#FFFFFF",
-        tabBarInactiveTintColor: "#7A8B85",
-        tabBarShowLabel: false, // Deixa só os ícones para ficar mais minimalista
+        headerShown: false,
       }}
+      tabBar={() => <FooterMenu />}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="home-outline" size={28} color={color} />
-          ),
-        }}
-      />
-
-      {/* O nosso Botão Mágico (+) no centro */}
-      <Tabs.Screen
-        name="add" // Esse nome não importa porque vamos sobrescrever o botão
-        options={{
-          tabBarButton: () => (
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleAddPress}
-              style={styles.fabContainer}
-            >
-              <View style={styles.fab}>
-                <Ionicons name="add" size={32} color="#FFFFFF" />
-              </View>
-            </TouchableOpacity>
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="produtos"
-        options={{
-          title: "Produtos",
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="cube-outline" size={28} color={color} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="index" />
+      <Tabs.Screen name="produtos" />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: "#053225", // O verde escuro do seu design
-    borderTopWidth: 0,
+  footer: {
+    backgroundColor: PALETA.branco,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    position: "absolute",
+    bottom: 0,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     elevation: 10,
-    height: 70,
-    paddingBottom: 10,
   },
-  fabContainer: {
-    top: -20, // Faz o botão "subir" e sair um pouco da barra
-    justifyContent: "center",
+  tabButton: {
     alignItems: "center",
+    justifyContent: "center",
   },
-  fab: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#0C7858", // Verde mais claro
-    justifyContent: "center",
+  plusButton: {
+    backgroundColor: PALETA.verdeFolha,
     alignItems: "center",
+    justifyContent: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
