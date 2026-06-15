@@ -75,6 +75,12 @@ export default function CadastrarProdutoScreen() {
       return;
     }
 
+    // A API exige descrição (campo @NotBlank); valida antes para evitar 400.
+    if (!descricao.trim()) {
+      Alert.alert("Aviso", "A descrição é obrigatória.");
+      return;
+    }
+
     try {
       setLoading(true);
       const token = await AsyncStorage.getItem("userToken");
@@ -95,8 +101,10 @@ export default function CadastrarProdutoScreen() {
       Alert.alert("Sucesso", "Produto cadastrado com sucesso.");
       limparCampos();
       router.back();
-    } catch (error) {
-      Alert.alert("Erro", "Não foi possível salvar o produto.");
+    } catch (error: any) {
+      const msg =
+        error?.response?.data?.erro ?? "Não foi possível salvar o produto.";
+      Alert.alert("Erro", msg);
     } finally {
       setLoading(false);
     }
@@ -121,8 +129,10 @@ export default function CadastrarProdutoScreen() {
       setCategoriasSelecionadas((prev) => [...prev, novaCategoria]);
       setNovaCategoria("");
       setModalCategoriaVisivel(false);
-    } catch (error) {
-      Alert.alert("Erro", "Não foi possível criar a categoria.");
+    } catch (error: any) {
+      const msg =
+        error?.response?.data?.erro ?? "Não foi possível criar a categoria.";
+      Alert.alert("Erro", msg);
     } finally {
       setLoading(false);
     }

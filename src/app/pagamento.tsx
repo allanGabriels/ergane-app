@@ -86,6 +86,16 @@ export default function Pagamento() {
       setLoading(true);
       const token = await AsyncStorage.getItem("userToken");
 
+      // A API exige precoTotal em cada item (SaleItemRequest @NotNull @Positive).
+      // O servidor recalcula os valores, mas os campos precisam vir preenchidos.
+      const itens = (vendaInput?.itens || []).map((item: any) => ({
+        produtoId: item.produtoId,
+        nome: item.nome,
+        quantidade: item.quantidade,
+        precoUnitario: item.precoUnitario,
+        precoTotal: Number((item.precoUnitario * item.quantidade).toFixed(2)),
+      }));
+
       const payload = {
         nomeCliente: vendaInput?.nomeCliente,
         cpfCliente: vendaInput?.cpfCliente,
@@ -93,7 +103,7 @@ export default function Pagamento() {
         valorTotal: total,
         valorRecebido: metodo === "Dinheiro" ? valorRecebido : total,
         troco: metodo === "Dinheiro" ? troco : 0.0,
-        itens: vendaInput?.itens || [],
+        itens,
       };
 
       await axios.post("https://ergane-api.onrender.com/vendas", payload, {
@@ -103,7 +113,10 @@ export default function Pagamento() {
       Alert.alert("Sucesso", "Venda registrada com sucesso!");
       router.replace("/(tabs)"); // Volta para a home atualizando o dashboard
     } catch (error: any) {
-      Alert.alert("Erro", "Não foi possível registrar a venda.");
+      // Surface a mensagem real da API (ex.: estoque insuficiente, valor recebido insuficiente).
+      const msg =
+        error?.response?.data?.erro ?? "Não foi possível registrar a venda.";
+      Alert.alert("Erro", msg);
     } finally {
       setLoading(false);
     }

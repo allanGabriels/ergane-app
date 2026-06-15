@@ -39,9 +39,12 @@ export default function LoginScreen() {
       );
 
       const token = response.data.token || response.data;
+      const nome = response.data.usuario?.nome;
 
       // SALVANDO O TOKEN NA WEB/ANDROID/IOS COM ASYNCSTORAGE
       await AsyncStorage.setItem("userToken", token);
+      // Guarda o nome para a saudação da home (GET não retorna o usuário).
+      if (nome) await AsyncStorage.setItem("userName", nome);
 
       router.replace("/(tabs)");
     } catch (error: any) {
