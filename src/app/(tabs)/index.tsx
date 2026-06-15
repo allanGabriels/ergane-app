@@ -1,454 +1,311 @@
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-import React, { useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  useWindowDimensions,
   View,
 } from "react-native";
-import { PALETA } from "../../constants/theme";
-
-type Venda = {
-  id: number;
-  cliente: string;
-  dataHora: string;
-  valor: string;
-};
-
-type DashboardData = {
-  nomeUsuario: string;
-  totalVendidoMes: string;
-  mensagemAssistente: string;
-  vendasRecentes: Venda[];
-};
-
-const dadosMock: DashboardData = {
-  nomeUsuario: "Allan",
-  totalVendidoMes: "R$ 27,50",
-  mensagemAssistente:
-    "Na ultima quinta, na Unicesumar, você vendeu mais bombons de maracujá.",
-  vendasRecentes: [
-    {
-      id: 1,
-      cliente: "João Choma",
-      dataHora: "19 MAI 2026 14:52",
-      valor: "R$ 27,50",
-    },
-    {
-      id: 2,
-      cliente: "João Choma",
-      dataHora: "19 MAI 2026 14:52",
-      valor: "R$ 27,50",
-    },
-    {
-      id: 3,
-      cliente: "João Choma",
-      dataHora: "19 MAI 2026 14:52",
-      valor: "R$ 27,50",
-    },
-  ],
-};
-
-const FONTE = "Inter, Arial, sans-serif";
 
 export default function HomeScreen() {
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [recentSales, setRecentSales] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dados, setDados] = useState<DashboardData | null>(null);
-  const [vendaSelecionada, setVendaSelecionada] = useState<Venda | null>(null);
+  const router = useRouter();
 
-  const { width } = useWindowDimensions();
-  const larguraBase = Math.min(width, 412);
-  const escala = larguraBase / 412;
+  // Recarrega os dados do banco sempre que o usuário voltar para a Home
+  useFocusEffect(
+    useCallback(() => {
+      carregarDadosHome();
+    }, []),
+  );
 
-  const styles = criarStyles(escala, larguraBase);
+  async function carregarDadosHome() {
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem("userToken");
 
-  useEffect(() => {
-    async function carregarDashboard() {
-      try {
-        const response = await axios.get("/dashboard");
-        setDados(response.data);
-      } catch (error) {
-        setDados(dadosMock);
-      } finally {
-        setLoading(false);
+      if (!token) {
+        Alert.alert("Erro", "Sessão expirada. Faça login novamente.");
+        router.replace("/login");
+        return;
       }
-    }
 
-    carregarDashboard();
-  }, []);
+      const config = {
+        headers: { Authorization: `Bearer ${token}` },
+      };
+
+      // Busca o faturamento e as vendas recentes em paralelo da API no Render
+      const [dashResponse, salesResponse] = await Promise.all([
+        axios.get("https://ergane-api.onrender.com/vendas/dashboard", config),
+        axios
+          .get("https://ergane-api.onrender.com/vendas/recent-sales", config)
+          .catch(() => ({ data: [] })),
+      ]);
+
+      setDashboardData(dashResponse.data);
+      setRecentSales(salesResponse.data || []);
+    } catch (error) {
+      console.error("Erro ao buscar dados da Home:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function formatarData(dataString: string) {
+    if (!dataString) return "";
+    const data = new Date(dataString);
+    return (
+      data.toLocaleDateString("pt-BR") +
+      " às " +
+      data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+    );
+  }
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={PALETA.verdeEscuro} />
+      <View style={[styles.container, styles.centro]}>
+        <ActivityIndicator size="large" color="#0C7858" />
       </View>
     );
   }
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.container}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          <View style={styles.header}>
-            <Text style={styles.saudacao}>
-              Olá,{"\n"}
-              {dados?.nomeUsuario}
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Topo Verde Escuro idêntico ao padrão do Ergane */}
+        <View style={styles.cabecalho}>
+          <Text style={styles.saudacao}>Olá, Empreendedor!</Text>
+          <Text style={styles.subtitulo}>
+            Acompanhe o resumo do seu negócio
+          </Text>
+        </View>
+
+        {/* Card de Faturamento que sobrepõe o cabeçalho */}
+        <View style={styles.cardTotal}>
+          <Text style={styles.cardTotalTitulo}>Total Vendido (Mês)</Text>
+          <Text style={styles.cardTotalValor}>
+            R$ {dashboardData?.totalVendidoMes?.toFixed(2) || "0,00"}
+          </Text>
+        </View>
+
+        {/* Balão do Assistente Virtual Thiago */}
+        {dashboardData?.assistente && (
+          <View style={styles.cardAssistente}>
+            <View style={styles.assistenteHeader}>
+              <Ionicons name="sparkles" size={16} color="#0C7858" />
+              <Text style={styles.assistenteTitulo}>
+                {" "}
+                {dashboardData.assistente.titulo}
+              </Text>
+            </View>
+            <Text style={styles.assistenteMensagem}>
+              {dashboardData.assistente.mensagem}
             </Text>
-
-            <TouchableOpacity
-              style={styles.avatar}
-              onPress={() =>
-                Alert.alert("Aviso", "Funcionalidade ainda em desenvolvimento")
-              }
-            />
           </View>
+        )}
 
-          <Text style={styles.totalLabel}>Total vendido esse mês</Text>
+        {/* Seção de Vendas Recentes */}
+        <View style={styles.secaoVendas}>
+          <Text style={styles.secaoTitulo}>Vendas Recentes</Text>
 
-          <TouchableOpacity
-            style={styles.totalCard}
-            onPress={() =>
-              Alert.alert("Aviso", "Funcionalidade ainda em desenvolvimento")
-            }
-          >
-            <Text style={styles.totalValor}>{dados?.totalVendidoMes}</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.assistenteTitulo}>Assistente</Text>
-
-          <TouchableOpacity
-            style={styles.assistenteCard}
-            onPress={() =>
-              Alert.alert("Aviso", "Funcionalidade ainda em desenvolvimento")
-            }
-          >
-            <Text style={styles.assistenteTexto}>
-              <Text style={styles.assistenteNome}>Thiago:{"\n"}</Text>
-              {dados?.mensagemAssistente}
+          {recentSales.length === 0 ? (
+            <Text style={styles.semVendas}>
+              Nenhuma venda realizada recentemente.
             </Text>
-          </TouchableOpacity>
-
-          <View style={styles.vendasHeader}>
-            <Text style={styles.vendasTitulo}>Vendas recentes</Text>
-
-            <TouchableOpacity style={styles.verTodasButton}>
-              <Text style={styles.verTodasTexto}>Ver todas</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.listaVendas}>
-            {dados?.vendasRecentes.map((venda) => (
+          ) : (
+            recentSales.map((venda: any) => (
               <TouchableOpacity
                 key={venda.id}
-                style={styles.vendaCard}
-                onPress={() => setVendaSelecionada(venda)}
+                style={styles.cardVenda}
+                activeOpacity={0.7}
+                // Redireciona para o arquivo de detalhes passando o ID por parâmetro
+                onPress={() =>
+                  router.push({
+                    pathname: "/detalhes-venda",
+                    params: { id: venda.id },
+                  })
+                }
               >
-                <Text style={styles.nomeCliente}>{venda.cliente}</Text>
-                <Text style={styles.dataVenda}>{venda.dataHora}</Text>
-                <Text style={styles.valorVenda}>{venda.valor}</Text>
+                <View style={styles.vendaEsquerda}>
+                  <View style={styles.iconeContainer}>
+                    <Ionicons
+                      name="receipt-outline"
+                      size={20}
+                      color="#0C7858"
+                    />
+                  </View>
+                  <View>
+                    <Text style={styles.vendaClienteName}>
+                      {venda.nomeCliente || "Cliente Casual"}
+                    </Text>
+                    <Text style={styles.vendaDataText}>
+                      {formatarData(venda.dataHora)}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.vendaDireita}>
+                  <Text style={styles.vendaValorText}>
+                    R$ {venda.valorTotal?.toFixed(2)}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={16} color="#7A8B85" />
+                </View>
               </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
-
-        <Modal
-          visible={vendaSelecionada !== null}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setVendaSelecionada(null)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Detalhes Venda</Text>
-
-              <Text style={styles.modalText}>
-                Cliente: {vendaSelecionada?.cliente}
-              </Text>
-
-              <Text style={styles.modalText}>
-                Data: {vendaSelecionada?.dataHora}
-              </Text>
-
-              <Text style={styles.modalText}>
-                Valor: {vendaSelecionada?.valor}
-              </Text>
-
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={() => setVendaSelecionada(null)}
-              >
-                <Text style={styles.modalButtonText}>Fechar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-      </View>
+            ))
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
-function criarStyles(escala: number, larguraBase: number) {
-  const s = (valor: number) => valor * escala;
-
-  return StyleSheet.create({
-    screen: {
-      flex: 1,
-      backgroundColor: PALETA.offWhite,
-      alignItems: "center",
-    },
-
-    container: {
-      flex: 1,
-      width: larguraBase,
-      backgroundColor: PALETA.offWhite,
-    },
-
-    loadingContainer: {
-      alignItems: "center",
-      justifyContent: "center",
-    },
-
-    scrollContent: {
-      paddingTop: s(34),
-      paddingHorizontal: s(24),
-      paddingBottom: s(24),
-    },
-
-    header: {
-      height: s(75),
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
-    },
-
-    saudacao: {
-      marginTop: s(11),
-      width: s(158),
-      height: s(64),
-      fontFamily: FONTE,
-      fontSize: s(32),
-      fontWeight: "400",
-      lineHeight: s(32),
-      color: PALETA.preto,
-    },
-
-    avatar: {
-      width: s(45),
-      height: s(43),
-      borderRadius: s(24),
-      backgroundColor: PALETA.verdeEscuro,
-    },
-
-    totalLabel: {
-      width: s(216),
-      height: s(27),
-      marginTop: s(9),
-      fontFamily: FONTE,
-      fontSize: s(12),
-      fontWeight: "700",
-      lineHeight: s(12),
-      color: PALETA.verdeEscuro,
-    },
-
-    totalCard: {
-      width: s(365),
-      height: s(105),
-      borderRadius: s(16),
-      backgroundColor: PALETA.verdeEscuro,
-      justifyContent: "center",
-      paddingLeft: s(12),
-    },
-
-    totalValor: {
-      width: s(206),
-      height: s(51),
-      fontFamily: FONTE,
-      fontSize: s(40),
-      fontWeight: "700",
-      lineHeight: s(40),
-      color: PALETA.branco,
-    },
-
-    assistenteTitulo: {
-      width: s(220),
-      height: s(24),
-      marginTop: s(26),
-      fontFamily: FONTE,
-      fontSize: s(24),
-      fontWeight: "400",
-      lineHeight: s(24),
-      color: PALETA.preto,
-    },
-
-    assistenteCard: {
-      width: s(365),
-      height: s(157),
-      marginTop: s(8),
-      borderRadius: s(16),
-      backgroundColor: PALETA.verdeFolha,
-      paddingTop: s(22),
-      paddingHorizontal: s(13),
-    },
-
-    assistenteTexto: {
-      width: s(327),
-      fontFamily: FONTE,
-      fontSize: s(24),
-      fontWeight: "400",
-      lineHeight: s(24),
-      color: PALETA.branco,
-    },
-
-    assistenteNome: {
-      fontFamily: FONTE,
-      fontSize: s(24),
-      fontWeight: "700",
-      lineHeight: s(24),
-      color: PALETA.branco,
-    },
-
-    vendasHeader: {
-      marginTop: s(55),
-      height: s(24),
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-    },
-
-    vendasTitulo: {
-      width: s(220),
-      height: s(24),
-      fontFamily: FONTE,
-      fontSize: s(24),
-      fontWeight: "400",
-      lineHeight: s(24),
-      color: PALETA.preto,
-    },
-
-    verTodasButton: {
-      width: s(90),
-      height: s(21),
-      borderRadius: s(16),
-      backgroundColor: PALETA.verdeEscuro,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-
-    verTodasTexto: {
-      width: s(75),
-      height: s(14),
-      fontFamily: FONTE,
-      fontSize: s(14),
-      fontWeight: "400",
-      lineHeight: s(14),
-      textAlign: "center",
-      color: PALETA.branco,
-    },
-
-    listaVendas: {
-      marginTop: s(29),
-    },
-
-    vendaCard: {
-      width: s(365),
-      height: s(94),
-      borderRadius: s(16),
-      backgroundColor: PALETA.branco,
-      marginBottom: s(18),
-      position: "relative",
-    },
-
-    nomeCliente: {
-      position: "absolute",
-      left: s(14),
-      top: s(19),
-      width: s(206),
-      height: s(23),
-      fontFamily: FONTE,
-      fontSize: s(20),
-      fontWeight: "400",
-      lineHeight: s(20),
-      color: PALETA.preto,
-    },
-
-    dataVenda: {
-      position: "absolute",
-      left: s(14),
-      top: s(60),
-      width: s(206),
-      height: s(18),
-      fontFamily: FONTE,
-      fontSize: s(16),
-      fontWeight: "400",
-      lineHeight: s(16),
-      color: PALETA.preto,
-    },
-
-    valorVenda: {
-      position: "absolute",
-      right: s(14),
-      top: s(51),
-      width: s(141),
-      height: s(30),
-      fontFamily: FONTE,
-      fontSize: s(24),
-      fontWeight: "400",
-      lineHeight: s(24),
-      textAlign: "right",
-      color: PALETA.preto,
-    },
-
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: "rgba(0, 0, 0, 0.35)",
-      justifyContent: "flex-end",
-    },
-
-    modalCard: {
-      backgroundColor: PALETA.branco,
-      borderTopLeftRadius: s(24),
-      borderTopRightRadius: s(24),
-      padding: s(24),
-    },
-
-    modalTitle: {
-      fontFamily: FONTE,
-      fontSize: s(24),
-      fontWeight: "700",
-      color: PALETA.verdeEscuro,
-      marginBottom: s(16),
-    },
-
-    modalText: {
-      fontFamily: FONTE,
-      fontSize: s(18),
-      fontWeight: "400",
-      color: PALETA.preto,
-      marginBottom: s(8),
-    },
-
-    modalButton: {
-      marginTop: s(16),
-      height: s(48),
-      borderRadius: s(16),
-      backgroundColor: PALETA.verdeEscuro,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-
-    modalButtonText: {
-      fontFamily: FONTE,
-      fontSize: s(18),
-      fontWeight: "700",
-      color: PALETA.branco,
-    },
-  });
-}
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F9F9F9",
+  },
+  centro: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  cabecalho: {
+    backgroundColor: "#053225",
+    paddingHorizontal: 24,
+    paddingTop: 50,
+    paddingBottom: 40,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+  },
+  saudacao: {
+    color: "#FFFFFF",
+    fontSize: 26,
+    fontWeight: "bold",
+  },
+  subtitulo: {
+    color: "#7A8B85",
+    fontSize: 14,
+    marginTop: 4,
+  },
+  cardTotal: {
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 24,
+    marginTop: -25,
+    padding: 20,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#EFEFEF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+  },
+  cardTotalTitulo: {
+    color: "#7A8B85",
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "uppercase",
+  },
+  cardTotalValor: {
+    color: "#053225",
+    fontSize: 32,
+    fontWeight: "bold",
+    marginTop: 6,
+  },
+  cardAssistente: {
+    backgroundColor: "#EFFFFB",
+    marginHorizontal: 24,
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 18,
+    borderLeftWidth: 4,
+    borderLeftColor: "#0C7858",
+  },
+  assistenteHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  assistenteTitulo: {
+    color: "#053225",
+    fontWeight: "bold",
+    fontSize: 15,
+  },
+  assistenteMensagem: {
+    color: "#4A5A54",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  secaoVendas: {
+    marginHorizontal: 24,
+    marginTop: 24,
+    paddingBottom: 40,
+  },
+  secaoTitulo: {
+    color: "#053225",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 14,
+  },
+  semVendas: {
+    color: "#7A8B85",
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: 20,
+  },
+  cardVenda: {
+    backgroundColor: "#FFFFFF",
+    padding: 14,
+    borderRadius: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#F0F0F0",
+  },
+  vendaEsquerda: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  iconeContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#EFFFFB",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  vendaClienteName: {
+    color: "#053225",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  vendaDataText: {
+    color: "#7A8B85",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  vendaDireita: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  vendaValorText: {
+    color: "#053225",
+    fontSize: 15,
+    fontWeight: "bold",
+    marginRight: 6,
+  },
+});

@@ -1,22 +1,29 @@
-import React, { useState } from 'react';
-import {StyleSheet, Text, View, Image, ImageBackground, TextInput, TouchableOpacity, Alert, ActivityIndicator,} from 'react-native';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-import axios from 'axios';
-
-export default function App() {
-  const [cpf, setCpf] = useState('');
-  const [senha, setSenha] = useState('');
+export default function LoginScreen() {
+  const [cpf, setCpf] = useState("");
+  const [senha, setSenha] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  const imagemFundo = { uri: 'https://lh5.googleusercontent.com/proxy/eEiMG7Hv11WwI8whsyj5KqjpJF2NnrlJm6IZ4_Y7TgRxEJkT3w_-UnVy1YvLJzUCAGUs-h7_QjONRHUEKYP3wOoJ3A4PloFNz8QCJSPhdL174KEuQM0t2V0' };
-  const imagemLogo = { uri: 'https://images.seeklogo.com/logo-png/59/1/atacadao-logo-png_seeklogo-593562.png' };
+  const logoSource = require("../../assets/images/logo-glow.png");
 
   async function handleLogin() {
     if (!cpf || !senha) {
-      Alert.alert(
-        'Erro',
-        'Preencha o CPF e a Senha para continuar.'
-      );
+      Alert.alert("Atenção", "Preencha o CPF e a Senha para continuar.");
       return;
     }
 
@@ -24,135 +31,113 @@ export default function App() {
       setLoading(true);
 
       const response = await axios.post(
-        'https://sua-api.com/login',
+        "https://ergane-api.onrender.com/login",
         {
           cpf,
           senha,
-        }
+        },
       );
 
-      Alert.alert(
-        'Sucesso',
-        'Login realizado com sucesso!'
-      );
+      const token = response.data.token || response.data;
 
-      console.log(response.data);
+      // SALVANDO O TOKEN NA WEB/ANDROID/IOS COM ASYNCSTORAGE
+      await AsyncStorage.setItem("userToken", token);
 
-    } catch (error) {
-
-      if (error.response?.status === 401) {
-        Alert.alert(
-          'Erro',
-          'CPF ou senha incorretos.'
-        );
+      router.replace("/(tabs)");
+    } catch (error: any) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        Alert.alert("Acesso Negado", "CPF ou senha incorretos.");
       } else {
         Alert.alert(
-          'Erro',
-          'Não foi possível conectar ao servidor.'
+          "Erro",
+          "Não foi possível conectar ao servidor. Tente novamente mais tarde.",
         );
       }
-
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <ImageBackground
-      source = {imagemFundo}
-      style = {styles.imagemFundo}
-    >
-      <View style = {styles.degrade}/>
-      <View style = {styles.tudo}>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Image source={logoSource} style={styles.logo} />
+        <Text style={styles.nome}>Ergane</Text>
+      </View>
 
-        <View style = {styles.cabecalho}>
-          <Image source = {imagemLogo} style = {styles.logo}/>
-          <Text style = {styles.nome}>Ergane</Text>
-        </View>
+      <View style={styles.formContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="CPF"
+          placeholderTextColor="#7A8B85"
+          value={cpf}
+          onChangeText={setCpf}
+          keyboardType="numeric"
+          autoCapitalize="none"
+        />
 
-        <View style={styles.login}>
-          <TextInput
-            style={styles.input}
-            placeholder = 'CPF'
-            placeholderTextColor = '#053225A1'
-            value = {cpf}
-            onChangeText = {setCpf}
-            keyboardType = "numeric"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder = 'Senha'
-            placeholderTextColor = '#053225A1'
-            value = {senha}
-            onChangeText = {setSenha}
-            secureTextEntry = {true}
-          />
-          <TouchableOpacity style = {[styles.botao,loading]}
-            onPress = {handleLogin}
-            disabled = {loading}
-          >
-            {loading ? (
-              <ActivityIndicator color = '#FFFFFF'/>
-            ) : (
-              <Text style = {styles.entrar}>
-                Entrar
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
+        <TextInput
+          style={styles.input}
+          placeholder="Senha"
+          placeholderTextColor="#7A8B85"
+          value={senha}
+          onChangeText={setSenha}
+          secureTextEntry={true}
+        />
 
-      </View> 
-    </ImageBackground>
+        <TouchableOpacity
+          style={[styles.botao, loading && { opacity: 0.7 }]}
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.entrar}>Entrar</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  imagemFundo: {
+  container: {
     flex: 1,
+    backgroundColor: "#053225",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
   },
-  degrade: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(5, 50, 37, 0.75)',
-  },
-  tudo: {
-    flex: 1,
-  },
-  cabecalho: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  logo: {
-    width: 140,
-    height: 140,
-    margin: 20
-  },
-  nome: {
-    color: '#FFFFFF',
-    fontSize: 40,
-  },
-  login: {
-    flex: 1,
-    justifyContent: 'center'
-  },
+  header: { alignItems: "center", marginBottom: 50 },
+  logo: { width: 180, height: 180, resizeMode: "contain", marginBottom: -20 },
+  nome: { color: "#FFFFFF", fontSize: 48, fontWeight: "600", letterSpacing: 1 },
+  formContainer: { width: "100%", maxWidth: 340 },
   input: {
-    borderRadius: 18,
-    paddingVertical: 12,
-    paddingLeft: 20,
-    marginHorizontal: 50,
-    marginBottom: 15,
-    backgroundColor: '#D9D9D9'
+    backgroundColor: "#D9D9D9",
+    borderRadius: 30,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    marginBottom: 16,
+    fontSize: 16,
+    color: "#053225",
   },
   botao: {
-    borderRadius: 18,
-    paddingVertical: 12,
-    marginHorizontal: 50,
-    marginBottom: 15,
-    backgroundColor: '#0C7858',
-    alignItems: 'center'
+    backgroundColor: "#0C7858",
+    borderRadius: 30,
+    paddingVertical: 16,
+    alignItems: "center",
+    marginTop: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   entrar: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16,
+    color: "#FFFFFF",
+    fontWeight: "bold",
+    fontSize: 18,
+    letterSpacing: 0.5,
   },
 });
